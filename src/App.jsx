@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { GoogleGenAI } from "@google/genai";
+import { Analytics } from "@vercel/analytics/react";
 
 // ── Static definitions ────────────────────────────────────────────────────────
 const STOCK_DEFS = [
@@ -783,6 +784,7 @@ export default function App() {
         {tab==="portfolio" && <PortfolioTab stocks={stocks} userStocks={userStocks} userMFs={userMFs} />}
         {tab==="advisor"   && <AIAdvisorTab stocks={stocks} indices={indices} userStocks={userStocks} userMFs={userMFs} />}
       </div>
+      <Analytics />
     </div>
   );
 }
