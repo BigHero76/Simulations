@@ -1,16 +1,66 @@
-# React + Vite
+# NSE Terminal 📈
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![App Screenshoot](https://img.shields.io/badge/Status-Live-00e5a0?style=for-the-badge)
+![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
+![Vite](https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)
+![Express.js](https://img.shields.io/badge/express.js-%23404d59.svg?style=for-the-badge&logo=express&logoColor=%2361DAFB)
+![Gemini AI](https://img.shields.io/badge/Google%20Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
 
-Currently, two official plugins are available:
+A high-performance, real-time Indian Stock Market tracking dashboard and portfolio manager built with React and Vite. It features live NSE quotes, dynamic mutual fund tracking, and an integrated **Google Gemini 2.0 AI Advisor** for personalized financial insights.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ Features
 
-## React Compiler
+- **🔴 Live Market Tracking:** Streams live stock prices (NIFTY 50, SENSEX, Equities) dynamically fetching from Google Finance via a dedicated Express.js backend.
+- **🏦 Mutual Funds (AMFI):** Automatically parses daily official `NAVAll.txt` feeds from the Association of Mutual Funds in India (AMFI).
+- **💼 Dynamic Portfolio Manager:** Add or remove stocks & mutual funds with interactive `+` and `-` controls to build a highly personalized, unified P&L view. P&L, sector allocations, and invested metrics update in real-time.
+- **🤖 Live AI Advisor:** Integrated directly with the Google Gemini SDK. The AI is fed your live portfolio and real-time market indices as context, providing bespoke buy/hold/sell advice and sentiment analysis.
+- **🎨 Modern UI:** A fully custom, sleek, glass-morphism dark mode UI utilizing zero external component libraries.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## 🚀 Installation & Setup
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Because this project bypasses restrictive CORS blocks on modern financial APIs, it requires running both the React frontend and the Express backend simultaneously.
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/BigHero76/Simulations.git
+cd Simulations
+```
+
+### 2. Install Dependencies
+```bash
+npm install
+```
+
+### 3. Add Gemini API Key
+Create a `.env` file in the root directory and add your free Google AI Studio API key.
+```env
+VITE_GEMINI_API_KEY=your_api_key_here
+```
+
+### 4. Start the Application
+You will need **two terminal windows**.
+
+**Terminal 1 (Backend Finance Proxy):**
+```bash
+node server.js
+```
+*This robust express server runs on port `3001` and scrapes Google Finance while bypassing their User-Agent blocks.*
+
+**Terminal 2 (React Frontend):**
+```bash
+npm run dev
+```
+*Vite binds aggressively to localhost on port `8888` to avoid Windows networking conflicts. The UI will be available at `http://127.0.0.1:8888`.*
+
+---
+
+## 🛠 Tech Stack
+
+- **Frontend:** React + Vite (Vanilla CSS)
+- **Backend:** Node.js + Express
+- **APIs:** Google Finance (Stocks & Indices), AMFI (Mutual Funds), `@google/genai` (LLM)
+
+---
+*Disclaimer: This is a simulation project. It is not intended as certified financial advice. Stock market data may be delayed.*
