@@ -590,7 +590,12 @@ Rules:
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.error || 'Server Side Error');
+        let errMsg = errData.error || 'Server Side Error';
+        try {
+          const innerParse = JSON.parse(errData.error);
+          if (innerParse.error && innerParse.error.message) errMsg = innerParse.error.message;
+        } catch(e) {}
+        throw new Error(errMsg);
       }
 
       const data = await response.json();
@@ -604,7 +609,7 @@ Rules:
       
     } catch (e) {
       console.error("Gemini Error:", e);
-      setMessages([...newMsgs, { role: "assistant", content: "⚠️ Connection error. Please verify your API Key." }]);
+      setMessages([...newMsgs, { role: "assistant", content: `⚠️ Error: ${e.message}` }]);
     }
     setAiLoading(false);
   };
