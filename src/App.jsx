@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { GoogleGenAI } from "@google/genai";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 // ── Static definitions ────────────────────────────────────────────────────────
@@ -565,7 +564,6 @@ ${userMFs.length ? userMFs.map((f) => `- ${f.name}: ${f.units} units, avg ₹${f
     setAiLoading(true);
     setSentiment(null);
     try {
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
       const systemInstruction = `You are an expert Indian stock market financial advisor specialising in NSE/BSE, mutual funds, macro, and RBI policy.
 ${buildContext()}
 ${hiddenContext}
@@ -577,25 +575,26 @@ Rules:
 - Use ₹ for INR. Reference real Indian market context and SEBI regulations
 - Use bullet points (• ) for clarity`;
 
-      // Convert messages to Gemini format (excluding system prompt)
-      // Gemini expects user/model roles 
-      const chatOptions = {
-        model: 'gemini-2.5-flash',
-        config: { systemInstruction }
-      };
+      const historyMsgs = messages.slice(1);
+      const url = import.meta.env.PROD ? '/api/chat' : 'http://localhost:3001/api/ai/chat';
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          history: historyMsgs,
+          message: msg,
+          systemInstruction
+        })
+      });
 
-      const historyMsgs = messages.slice(1); // skip the welcome msg
-      const chat = ai.chats.create(chatOptions);
-      
-      // Seed history
-      for (const m of historyMsgs) {
-         if (m.role === "user") {
-             await chat.sendMessage({ message: m.content });
-         }
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Server Side Error');
       }
-      
-      const response = await chat.sendMessage({ message: msg });
-      const reply_raw = response.text || "Unable to respond. Please try again.";
+
+      const data = await response.json();
+      const reply_raw = data.text || "Unable to respond. Please try again.";
 
       const match = reply_raw.match(/\[SENTIMENT:(-?\d+):(\w+)\]/);
       if (match) setSentiment({ score: parseInt(match[1]), label: match[2] });

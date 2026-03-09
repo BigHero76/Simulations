@@ -1,11 +1,13 @@
 import express from 'express';
 import fetch from 'node-fetch';
 import cors from 'cors';
+import { GoogleGenAI } from '@google/genai';
 
 const app = express();
 const port = 3001;
 
 app.use(cors());
+app.use(express.json());
 
 // Fetch Yahoo Finance
 app.get('/api/finance/quote', async (req, res) => {
@@ -110,6 +112,38 @@ app.get('/api/finance/news', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch news' });
+  }
+});
+
+// Proxy AI Chat endpoint to mirror Vercel Serverless
+app.post('/api/ai/chat', async (req, res) => {
+  try {
+    const { history, message, systemInstruction } = req.body;
+    const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    
+    if (!apiKey) {
+      return res.status(500).json({ error: "Missing API Key. Check your .env file." });
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+    const chat = ai.chats.create({
+      model: 'gemini-2.5-flash',
+      config: { systemInstruction }
+    });
+    
+    if (history && Array.isArray(history)) {
+      for (const m of history) {
+        if (m.role === "user") {
+          await chat.sendMessage({ message: m.content });
+        }
+      }
+    }
+    
+    const response = await chat.sendMessage({ message });
+    res.json({ text: response.text });
+  } catch (error) {
+    console.error("Local Advisor Proxy Error:", error);
+    res.status(500).json({ error: error.message || 'Failed to communicate with AI locally' });
   }
 });
 
