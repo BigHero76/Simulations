@@ -629,10 +629,10 @@ export default function App() {
   const [userStocks, setUserStocks] = useState([]);
   const [userMFs, setUserMFs]       = useState([]);
 
-  // Provide realistic increment sizes
+  // Add 1 unit at a time
   const buyStock = (s) => {
     if (s.price == null) return;
-    const qtyToAdd = s.price > 1000 ? 5 : 20;
+    const qtyToAdd = 1;
     setUserStocks(prev => {
       const existing = prev.find(p => p.symbol === s.symbol);
       if (existing) {
@@ -646,7 +646,7 @@ export default function App() {
   };
 
   const sellStock = (s) => {
-    const qtyToSub = s.price > 1000 ? 5 : 20;
+    const qtyToSub = 1;
     setUserStocks(prev => {
       const existing = prev.find(p => p.symbol === s.symbol);
       if (!existing) return prev;
@@ -657,7 +657,7 @@ export default function App() {
 
   const buyMF = (f) => {
     if (f.nav == null) return;
-    const unitsToAdd = 50;
+    const unitsToAdd = 1;
     setUserMFs(prev => {
       const existing = prev.find(m => m.name === f.name);
       if (existing) {
@@ -670,7 +670,7 @@ export default function App() {
   };
 
   const sellMF = (f) => {
-    const unitsToSub = 50;
+    const unitsToSub = 1;
     setUserMFs(prev => {
       const existing = prev.find(m => m.name === f.name);
       if (!existing) return prev;
