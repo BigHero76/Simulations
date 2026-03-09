@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/amfi/(.*)",
+      "destination": "https://www.amfiindia.com/$1"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

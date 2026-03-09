@@ -26,11 +26,12 @@ const MUTUAL_FUNDS = [
 
 // The hardcoded portfolios have been replaced by dynamic user state in the App component.
 
-// ── Yahoo Finance Price Fetcher (via Vite Proxy) ──────────────────────
+// ── Google Finance Price Fetcher (via Vercel Serverless or Local Proxy) ───
 async function fetchLivePrices(symbols) {
   try {
     const querySymbols = symbols.map(s => `${s}.NS`).join(',');
-    const res = await fetch(`http://localhost:3001/api/finance/quote?symbols=${querySymbols}`);
+    const url = import.meta.env.PROD ? `/api/finance?symbols=${querySymbols}` : `http://localhost:3001/api/finance/quote?symbols=${querySymbols}`;
+    const res = await fetch(url);
     const data = await res.json();
     
     if (!data.quoteResponse || !data.quoteResponse.result) return null;
@@ -58,8 +59,9 @@ async function fetchLiveIndices() {
       '^CNXIT': 'NIFTY IT',
       '^INDIAVIX': 'INDIA VIX'
     };
-    const symbols = Object.keys(indexMap).join(',');
-    const res = await fetch(`http://localhost:3001/api/finance/quote?symbols=${symbols}`);
+    const querySymbols = Object.keys(indexMap).join(',');
+    const url = import.meta.env.PROD ? `/api/finance?symbols=${querySymbols}` : `http://localhost:3001/api/finance/quote?symbols=${querySymbols}`;
+    const res = await fetch(url);
     const data = await res.json();
     
     if (!data.quoteResponse || !data.quoteResponse.result) return null;
