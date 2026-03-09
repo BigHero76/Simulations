@@ -394,15 +394,21 @@ function MutualFundsTab({ funds, userMFs, buyMF, sellMF }) {
 }
 
 // ── Portfolio Tab ─────────────────────────────────────────────────────────────
-function PortfolioTab({ stocks, userStocks, userMFs }) {
+function PortfolioTab({ stocks, userStocks, funds, userMFs }) {
   const enriched = userStocks.map((p) => {
     const live = stocks.find((s) => s.symbol === p.symbol);
     return { ...p, currentPrice: live?.price ?? null };
   });
+  
+  const enrichedMFs = userMFs.map((f) => {
+    const live = funds?.find((lf) => lf.name === f.name);
+    return { ...f, currentNav: live?.nav ?? f.currentNav ?? f.avgNav };
+  });
+
   const stockTotal    = enriched.reduce((a,s) => a + (s.currentPrice ? s.qty * s.currentPrice : s.qty * s.avgPrice), 0);
   const stockInvested = enriched.reduce((a,s) => a + s.qty * s.avgPrice, 0);
-  const mfTotal       = userMFs.reduce((a,f) => a + f.units * f.currentNav, 0);
-  const mfInvested    = userMFs.reduce((a,f) => a + f.units * f.avgNav, 0);
+  const mfTotal       = enrichedMFs.reduce((a,f) => a + f.units * f.currentNav, 0);
+  const mfInvested    = enrichedMFs.reduce((a,f) => a + f.units * f.avgNav, 0);
   const total         = stockTotal + mfTotal;
   const invested      = stockInvested + mfInvested;
   const pnl           = total - invested;
@@ -466,9 +472,9 @@ function PortfolioTab({ stocks, userStocks, userMFs }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ background: "#0f0f0f", border: "1px solid #1a1a1a", borderRadius: 12, padding: "18px 20px" }}>
             <div style={{ color: "#e0e0e0", fontWeight: 700, marginBottom: 14, fontSize: 14 }}>MF Holdings</div>
-            {userMFs.length === 0 ? (
+            {enrichedMFs.length === 0 ? (
               <div style={{ color: "#555", fontSize: 13, fontStyle: "italic", padding: "10px 0" }}>No mutual funds in portfolio. Add some from the MF tab.</div>
-            ) : userMFs.map((f) => {
+            ) : enrichedMFs.map((f) => {
               const val = f.units * f.currentNav, inv = f.units * f.avgNav, p = val - inv;
               return (
                 <div key={f.name} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #111", alignItems: "center" }}>
@@ -890,7 +896,7 @@ export default function App() {
       <div style={{ padding:"24px", maxWidth:1400, margin:"0 auto" }}>
         {tab==="stocks"    && <StocksTab stocks={stocks} loading={loading} lastRefresh={lastRefresh} refreshing={refreshing} onRefresh={() => loadData(true)} userStocks={userStocks} buyStock={buyStock} sellStock={sellStock} />}
         {tab==="mf"        && <MutualFundsTab funds={funds} userMFs={userMFs} buyMF={buyMF} sellMF={sellMF} />}
-        {tab==="portfolio" && <PortfolioTab stocks={stocks} userStocks={userStocks} userMFs={userMFs} />}
+        {tab==="portfolio" && <PortfolioTab stocks={stocks} userStocks={userStocks} funds={funds} userMFs={userMFs} />}
         {tab==="advisor"   && <AIAdvisorTab stocks={stocks} indices={indices} userStocks={userStocks} userMFs={userMFs} />}
       </div>
     </div>
