@@ -20,10 +20,10 @@ export default defineConfig({
           });
         }
       },
-      '/api/amfi': {
+      '/amfi-proxy': {
         target: 'https://www.amfiindia.com',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/amfi/, '')
+        rewrite: (path) => path.replace(/^\/amfi-proxy/, '')
       }
     }
   }

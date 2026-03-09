@@ -79,7 +79,7 @@ async function fetchLiveIndices() {
 
 async function fetchLiveMutualFunds() {
   try {
-    const res = await fetch("/api/amfi/spages/NAVAll.txt");
+    const res = await fetch("/amfi-proxy/spages/NAVAll.txt");
     const text = await res.text();
     const lines = text.split('\n');
 

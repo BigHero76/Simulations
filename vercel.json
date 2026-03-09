@@ -1,7 +1,7 @@
 {
   "rewrites": [
     {
-      "source": "/api/amfi/(.*)",
+      "source": "/amfi-proxy/(.*)",
       "destination": "https://www.amfiindia.com/$1"
     },
     {
