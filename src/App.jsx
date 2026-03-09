@@ -350,7 +350,7 @@ function PortfolioTab({ stocks, userStocks, userMFs }) {
           { label: "Invested",     val: fmtCur(invested.toFixed(0)),   sub: "Cost Basis",                  color: "#666"    },
           { label: "Total P&L",   val: `${pnl>0?"+":""}${fmtCur(pnl.toFixed(0))}`, sub: `${pnlPct}% overall`, color: clr(pnl) },
           { label: "Stocks Value", val: fmtCur(stockTotal.toFixed(0)), sub: `${enriched.length} holdings`, color: "#00b4d8" },
-          { label: "MF Value",     val: fmtCur(mfTotal.toFixed(0)),    sub: `${MF_PORTFOLIO.length} funds`, color: "#f5a623" },
+          { label: "MF Value",     val: fmtCur(mfTotal.toFixed(0)),    sub: `${userMFs.length} funds`, color: "#f5a623" },
         ].map((c) => (
           <div key={c.label} style={{ background: "#0f0f0f", border: "1px solid #1a1a1a", borderRadius: 12, padding: "16px 18px" }}>
             <div style={{ color: "#333", fontSize: 11, marginBottom: 6 }}>{c.label}</div>
