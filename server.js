@@ -61,6 +61,58 @@ app.get('/api/finance/quote', async (req, res) => {
   }
 });
 
+// Fetch historical chart data for 1 year
+app.get('/api/finance/history', async (req, res) => {
+  const symbol = req.query.symbol;
+  if (!symbol) return res.status(400).json({ error: 'Missing symbol' });
+  
+  try {
+    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1y`;
+    const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!response.ok) throw new Error(response.statusText);
+    const json = await response.json();
+    
+    if (json.chart && json.chart.result && json.chart.result.length > 0) {
+      const result = json.chart.result[0];
+      const timestamps = result.timestamp || [];
+      const closes = result.indicators.quote[0].close || [];
+      
+      const history = timestamps.map((ts, i) => ({
+        date: new Date(ts * 1000).toISOString().split('T')[0],
+        price: closes[i] || null
+      })).filter(h => h.price !== null);
+      
+      res.json({ history });
+    } else {
+      res.status(404).json({ error: 'No history found' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch history' });
+  }
+});
+
+// Fetch historical news from RSS
+app.get('/api/finance/news', async (req, res) => {
+  const symbol = req.query.symbol;
+  if (!symbol) return res.status(400).json({ error: 'Missing symbol' });
+  
+  try {
+    const url = `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${symbol}`;
+    const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!response.ok) throw new Error(response.statusText);
+    const xml = await response.text();
+    
+    // Quick regex to grab titles to avoid bringing in an XML parser dependency
+    const titles = [...xml.matchAll(/<title>(.*?)<\/title>/g)].map(m => m[1]).slice(2, 7);
+    
+    res.json({ news: titles });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch news' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Backend proxy running on http://localhost:${port}`);
 });

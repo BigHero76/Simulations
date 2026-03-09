@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { GoogleGenAI } from "@google/genai";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 // ── Static definitions ────────────────────────────────────────────────────────
 const STOCK_DEFS = [
@@ -77,6 +78,31 @@ async function fetchLiveIndices() {
   }
 }
 
+async function fetchLiveHistory(symbol) {
+  try {
+    const url = import.meta.env.PROD ? `/api/history?symbol=${symbol}.NS` : `http://localhost:3001/api/finance/history?symbol=${symbol}.NS`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.history) return null;
+    return data.history;
+  } catch (err) {
+    console.error("Error fetching history:", err);
+    return null;
+  }
+}
+
+async function fetchLiveNews(symbol) {
+  try {
+    const url = import.meta.env.PROD ? `/api/news?symbol=${symbol}.NS` : `http://localhost:3001/api/finance/news?symbol=${symbol}.NS`;
+    const res = await fetch(url);
+    const data = await res.json();
+    return data.news || [];
+  } catch (err) {
+    console.error("Error fetching news:", err);
+    return [];
+  }
+}
+
 async function fetchLiveMutualFunds() {
   try {
     const res = await fetch("/amfi-proxy/spages/NAVAll.txt");
@@ -133,6 +159,50 @@ function StarRating({ n }) {
   return <span>{Array.from({ length: 5 }, (_, i) => <span key={i} style={{ color: i < n ? "#f5a623" : "#252525", fontSize: 12 }}>★</span>)}</span>;
 }
 
+function ChartModal({ symbol, name, onClose }) {
+  const [data, setData] = useState(null);
+  
+  useEffect(() => {
+    fetchLiveHistory(symbol).then(setData);
+  }, [symbol]);
+
+  const yDomain = data ? [Math.min(...data.map(d=>d.price))*0.95, Math.max(...data.map(d=>d.price))*1.05] : ['auto','auto'];
+
+  return (
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#000000cc", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }} onClick={onClose}>
+      <div style={{ background: "#0f0f0f", border: "1px solid #222", borderRadius: 16, padding: 24, width: "90%", maxWidth: 800 }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
+          <div>
+            <div style={{ color: "#e0e0e0", fontSize: 20, fontWeight: 700, fontFamily: "monospace" }}>{symbol}</div>
+            <div style={{ color: "#666", fontSize: 13 }}>{name} · 1Y History</div>
+          </div>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#666", fontSize: 24, cursor: "pointer" }}>×</button>
+        </div>
+        
+        <div style={{ height: 350, width: "100%" }}>
+          {!data ? (
+            <div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center", color: "#555" }}>Loading Chart Data...</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data}>
+                <XAxis dataKey="date" stroke="#333" tick={{fill:"#666", fontSize: 10}} minTickGap={30} />
+                <YAxis domain={yDomain} stroke="#333" tick={{fill:"#666", fontSize: 10}} tickFormatter={(v)=>`₹${v.toFixed(0)}`} width={60} />
+                <Tooltip 
+                  contentStyle={{ background: "#0a0a0a", border: "1px solid #222", borderRadius: 8, fontFamily: "monospace" }}
+                  labelStyle={{ color: "#888", marginBottom: 4 }}
+                  itemStyle={{ color: "#00e5a0", fontWeight: 700 }}
+                  formatter={(v) => [`₹${v.toFixed(2)}`, "Price"]}
+                />
+                <Line type="monotone" dataKey="price" stroke="#00e5a0" strokeWidth={2} dot={false} activeDot={{ r: 6, fill: "#000", stroke: "#00e5a0", strokeWidth: 2 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Index Bar ─────────────────────────────────────────────────────────────────
 function IndexBar({ indices, loading }) {
   const FALLBACK = [
@@ -166,6 +236,7 @@ function IndexBar({ indices, loading }) {
 function StocksTab({ stocks, loading, lastRefresh, onRefresh, refreshing, userStocks, buyStock, sellStock }) {
   const [sectorFilter, setSectorFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [chartAsset, setChartAsset] = useState(null);
   const sectors  = ["All", ...new Set(STOCK_DEFS.map((s) => s.sector))];
   const filtered = stocks.filter((s) => (sectorFilter === "All" || s.sector === sectorFilter) && s.symbol.includes(search.toUpperCase()));
 
@@ -203,6 +274,7 @@ function StocksTab({ stocks, loading, lastRefresh, onRefresh, refreshing, userSt
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(340px,1fr))", gap: 12 }}>
           {filtered.map((s) => (
             <div key={s.symbol}
+              onClick={() => setChartAsset(s)}
               style={{ background: "#0f0f0f", border: "1px solid #1a1a1a", borderRadius: 12, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", transition: "border-color 0.2s" }}
               onMouseEnter={(e) => e.currentTarget.style.borderColor = "#2e2e2e"}
               onMouseLeave={(e) => e.currentTarget.style.borderColor = "#1a1a1a"}>
@@ -243,6 +315,7 @@ function StocksTab({ stocks, loading, lastRefresh, onRefresh, refreshing, userSt
       <div style={{ marginTop: 14, color: "#1e1e1e", fontSize: 11, textAlign: "right" }}>
         Live prices via web search · auto-refreshes every 5 min
       </div>
+      {chartAsset && <ChartModal symbol={chartAsset.symbol} name={chartAsset.name} onClose={() => setChartAsset(null)} />}
     </div>
   );
 }
@@ -477,7 +550,7 @@ User's MF holdings:
 ${userMFs.length ? userMFs.map((f) => `- ${f.name}: ${f.units} units, avg ₹${f.avgNav.toFixed(2)}, NAV ₹${f.currentNav.toFixed(2)}`).join("\n") : "None"}`;
   };
 
-  const sendMessage = async (text) => {
+  const sendMessage = async (text, hiddenContext = "") => {
     const msg = text || input;
     if (!msg.trim()) return;
     setInput("");
@@ -489,6 +562,7 @@ ${userMFs.length ? userMFs.map((f) => `- ${f.name}: ${f.units} units, avg ₹${f
       const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
       const systemInstruction = `You are an expert Indian stock market financial advisor specialising in NSE/BSE, mutual funds, macro, and RBI policy.
 ${buildContext()}
+${hiddenContext}
 
 Rules:
 - Give concrete Buy / Hold / Sell recommendations with clear reasoning
@@ -512,7 +586,6 @@ Rules:
          if (m.role === "user") {
              await chat.sendMessage({ message: m.content });
          }
-         // skip assistant messages as the SDK tracks conversation state automatically after send
       }
       
       const response = await chat.sendMessage({ message: msg });
@@ -607,11 +680,30 @@ Rules:
           style={{ flex:1, background:"#0f0f0f", border:"1px solid #222", color:"#e0e0e0", padding:"12px 16px", borderRadius:10, fontSize:13, outline:"none" }}
           onFocus={(e) => e.target.style.borderColor="#00e5a0"}
           onBlur={(e)  => e.target.style.borderColor="#222"} />
-        <button onClick={() => sendMessage()} disabled={aiLoading || !input.trim()}
+          <button onClick={() => sendMessage()} disabled={aiLoading || !input.trim()}
           style={{ background: input.trim()?"linear-gradient(135deg,#00e5a0,#00b4d8)":"#111", border:"none", color: input.trim()?"#000":"#2e2e2e", padding:"12px 22px", borderRadius:10, cursor: input.trim()?"pointer":"default", fontWeight:700, fontSize:13, transition:"all 0.2s" }}>
           {aiLoading ? "…" : "Send →"}
         </button>
       </div>
+
+      {userStocks.length > 0 && (
+        <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
+           <span style={{ color: "#555", fontSize: 11 }}>Analyze News For:</span>
+           {userStocks.map(s => (
+             <button key={s.symbol} onClick={async () => {
+                const uiPrompt = `Analyze the current situation for ${s.symbol} given the latest news.`;
+                setAiLoading(true);
+                const news = await fetchLiveNews(s.symbol);
+                setAiLoading(false);
+                const hiddenCtx = `\n\nLATEST NEWS HEADLINES FOR ${s.symbol}:\n${news.length ? news.map(n => `- ${n}`).join("\n") : "None"}`;
+                sendMessage(uiPrompt, hiddenCtx);
+             }} disabled={aiLoading}
+             style={{ background: "#0f0f0f", border: "1px solid #1a1a1a", color: "#00b4d8", padding: "4px 10px", borderRadius: 6, cursor: aiLoading?"default":"pointer", fontSize: 11 }}>
+               {s.symbol}
+             </button>
+           ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -625,9 +717,27 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(null);
 
-  // Dynamic User Portfolio State
-  const [userStocks, setUserStocks] = useState([]);
-  const [userMFs, setUserMFs]       = useState([]);
+  // Dynamic User Portfolio State (Persistent)
+  const [userStocks, setUserStocks] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nse_user_stocks');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [userMFs, setUserMFs] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nse_user_mfs');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('nse_user_stocks', JSON.stringify(userStocks));
+  }, [userStocks]);
+
+  useEffect(() => {
+    localStorage.setItem('nse_user_mfs', JSON.stringify(userMFs));
+  }, [userMFs]);
 
   // Add 1 unit at a time
   const buyStock = (s) => {
