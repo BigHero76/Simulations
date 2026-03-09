@@ -1,5 +1,7 @@
 # NSE Terminal 📈
 
+**[🔴 Live Demo Complete Application Here](https://simulations-sigma.vercel.app/)**
+
 ![App Screenshoot](https://img.shields.io/badge/Status-Live-00e5a0?style=for-the-badge)
 ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
 ![Vite](https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)
