@@ -65,4 +65,13 @@ npm run dev
 - **APIs:** Google Finance (Stocks & Indices), AMFI (Mutual Funds), `@google/genai` (LLM)
 
 ---
+
+## Further Improvements/Enhancements
+
+- **Integration of Live AI Advisor**
+- **Integration of Live Portfolio Manager**
+- **Integration of Live Mutual Fund Tracker**
+- **Integration of Live Stock Market Tracker**
+
+---
 *Disclaimer: This is a simulation project. It is not intended as certified financial advice. Stock market data may be delayed.*
