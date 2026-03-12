@@ -102,6 +102,19 @@ async function fetchLiveNews(symbol) {
   }
 }
 
+async function fetchAllNews(symbols) {
+  try {
+    const querySymbols = symbols.map(s => `${s}.NS`).join(',');
+    const url = import.meta.env.PROD ? `/api/news?symbols=${querySymbols}` : `http://localhost:3001/api/finance/news?symbols=${querySymbols}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    return data.news || {};
+  } catch (err) {
+    console.error("Error fetching all news:", err);
+    return {};
+  }
+}
+
 async function fetchLiveMutualFunds() {
   try {
     const res = await fetch("/amfi-proxy/spages/NAVAll.txt");
@@ -513,6 +526,107 @@ function PortfolioTab({ stocks, userStocks, funds, userMFs }) {
   );
 }
 
+// ── News Tab ──────────────────────────────────────────────────────────────────
+function NewsTab() {
+  const [newsData, setNewsData] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("All");
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  const loadNews = async () => {
+    setLoading(true);
+    const symbols = STOCK_DEFS.map(s => s.symbol);
+    const data = await fetchAllNews(symbols);
+    setNewsData(data);
+    setLastUpdated(new Date());
+    setLoading(false);
+  };
+
+  useEffect(() => { loadNews(); }, []);
+
+  const timeAgo = (dateStr) => {
+    if (!dateStr) return "";
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  };
+
+  const allSymbols = ["All", ...Object.keys(newsData)];
+
+  // Flatten and sort all news items
+  const allItems = Object.entries(newsData).flatMap(([sym, items]) =>
+    (items || []).map(item => ({ ...item, symbol: sym }))
+  ).sort((a, b) => {
+    if (!a.pubDate || !b.pubDate) return 0;
+    return new Date(b.pubDate) - new Date(a.pubDate);
+  });
+
+  const filtered = filter === "All" ? allItems : allItems.filter(i => i.symbol === filter);
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {allSymbols.map(s => (
+            <button key={s} onClick={() => setFilter(s)}
+              style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid", borderColor: filter === s ? "#00b4d8" : "#222", background: filter === s ? "#00b4d818" : "transparent", color: filter === s ? "#00b4d8" : "#555", cursor: "pointer", fontSize: 12 }}>
+              {s}
+            </button>
+          ))}
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+          {lastUpdated && <span style={{ color: "#2a2a2a", fontSize: 11 }}>updated {lastUpdated.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" })} IST</span>}
+          <button onClick={loadNews} disabled={loading}
+            style={{ background: "transparent", border: "1px solid #222", color: loading ? "#333" : "#555", padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>
+            {loading ? "⟳ fetching…" : "⟳ refresh"}
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} style={{ background: "#0f0f0f", border: "1px solid #1a1a1a", borderRadius: 12, padding: "16px 20px" }}>
+              <Skeleton w="60%" h={16} /><div style={{ height: 8 }} /><Skeleton w="90%" h={12} />
+            </div>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={{ textAlign: "center", padding: 60, color: "#333" }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📰</div>
+          <div style={{ fontSize: 14 }}>No news available{filter !== "All" ? ` for ${filter}` : ""}.</div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {filtered.map((item, i) => (
+            <a key={i} href={item.link || "#"} target="_blank" rel="noopener noreferrer"
+              style={{ textDecoration: "none", background: "#0f0f0f", border: "1px solid #1a1a1a", borderRadius: 12, padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, transition: "border-color 0.2s", cursor: "pointer" }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = "#2e2e2e"}
+              onMouseLeave={e => e.currentTarget.style.borderColor = "#1a1a1a"}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <span style={{ background: "#161616", color: "#00b4d8", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: "monospace", fontWeight: 600 }}>{item.symbol}</span>
+                  {item.pubDate && <span style={{ color: "#2a2a2a", fontSize: 11 }}>{timeAgo(item.pubDate)}</span>}
+                </div>
+                <div style={{ color: "#b0b0b0", fontSize: 13, lineHeight: 1.5 }}>{item.title}</div>
+              </div>
+              <div style={{ color: "#222", fontSize: 16, flexShrink: 0 }}>→</div>
+            </a>
+          ))}
+        </div>
+      )}
+
+      <div style={{ marginTop: 14, color: "#1e1e1e", fontSize: 11, textAlign: "right" }}>
+        News headlines via Yahoo Finance RSS
+      </div>
+    </div>
+  );
+}
+
 // ── AI Advisor Tab ────────────────────────────────────────────────────────────
 function AIAdvisorTab({ stocks, indices, userStocks, userMFs }) {
   const [messages, setMessages] = useState([{
@@ -851,6 +965,7 @@ export default function App() {
     { id:"stocks",    label:"Stocks",      icon:"📈" },
     { id:"mf",        label:"Mutual Funds", icon:"🏦" },
     { id:"portfolio", label:"Portfolio",    icon:"💼" },
+    { id:"news",      label:"News",        icon:"📰" },
     { id:"advisor",   label:"AI Advisor",   icon:"🤖" },
   ];
 
@@ -901,6 +1016,7 @@ export default function App() {
         {tab==="stocks"    && <StocksTab stocks={stocks} loading={loading} lastRefresh={lastRefresh} refreshing={refreshing} onRefresh={() => loadData(true)} userStocks={userStocks} buyStock={buyStock} sellStock={sellStock} />}
         {tab==="mf"        && <MutualFundsTab funds={funds} userMFs={userMFs} buyMF={buyMF} sellMF={sellMF} />}
         {tab==="portfolio" && <PortfolioTab stocks={stocks} userStocks={userStocks} funds={funds} userMFs={userMFs} />}
+        {tab==="news"      && <NewsTab />}
         {tab==="advisor"   && <AIAdvisorTab stocks={stocks} indices={indices} userStocks={userStocks} userMFs={userMFs} />}
       </div>
     </div>
