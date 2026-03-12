@@ -77,6 +77,29 @@ async function fetchLiveIndices() {
   }
 }
 
+async function fetchIntradayData(symbol) {
+  try {
+    const url = import.meta.env.PROD ? `/api/intraday?symbol=${symbol}.NS` : `http://localhost:3001/api/finance/chart/${symbol}.NS?interval=5m&range=1d`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.intraday) return data.intraday;
+    // Fallback for local dev server (raw Yahoo response)
+    if (data.chart?.result?.[0]) {
+      const result = data.chart.result[0];
+      const timestamps = result.timestamp || [];
+      const closes = result.indicators.quote[0].close || [];
+      return timestamps.map((ts, i) => ({
+        time: new Date(ts * 1000).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' }),
+        price: closes[i] || null
+      })).filter(p => p.price !== null);
+    }
+    return null;
+  } catch (err) {
+    console.error("Error fetching intraday:", err);
+    return null;
+  }
+}
+
 async function fetchLiveHistory(symbol) {
   try {
     const url = import.meta.env.PROD ? `/api/history?symbol=${symbol}.NS` : `http://localhost:3001/api/finance/history?symbol=${symbol}.NS`;
@@ -167,6 +190,31 @@ function MiniBar({ pct, positive }) {
   );
 }
 
+function IntradaySparkline({ data, positive }) {
+  if (!data || data.length < 2) return <MiniBar positive={positive} />;
+  const prices = data.map(d => d.price);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const range = max - min || 1;
+  const w = 80, h = 30, pad = 2;
+  const pts = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = pad + (1 - (d.price - min) / range) * (h - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const color = positive ? "#00e5a0" : "#ff4d6d";
+  // Create gradient fill area
+  const firstPt = pts.split(" ")[0];
+  const lastPt = pts.split(" ").pop();
+  const fillPts = `${pts} ${lastPt.split(",")[0]},${h} ${firstPt.split(",")[0]},${h}`;
+  return (
+    <svg width={w} height={h}>
+      <polygon points={fillPts} fill={`${color}15`} />
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+    </svg>
+  );
+}
+
 function StarRating({ n }) {
   return <span>{Array.from({ length: 5 }, (_, i) => <span key={i} style={{ color: i < n ? "#f5a623" : "#252525", fontSize: 12 }}>★</span>)}</span>;
 }
@@ -245,7 +293,7 @@ function IndexBar({ indices, loading }) {
 }
 
 // ── Stocks Tab ────────────────────────────────────────────────────────────────
-function StocksTab({ stocks, loading, lastRefresh, onRefresh, refreshing, userStocks, buyStock, sellStock }) {
+function StocksTab({ stocks, loading, lastRefresh, onRefresh, refreshing, userStocks, buyStock, sellStock, intradayData = {} }) {
   const [sectorFilter, setSectorFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [chartAsset, setChartAsset] = useState(null);
@@ -318,7 +366,7 @@ function StocksTab({ stocks, loading, lastRefresh, onRefresh, refreshing, userSt
                     })()}
                   </>
                 ) : <><Skeleton w={110} h={22} /><div style={{ height: 6 }} /><Skeleton w={80} h={14} /></>}
-                <div style={{ marginTop: 6 }}><MiniBar positive={(s.pct ?? 0) >= 0} /></div>
+                <div style={{ marginTop: 6 }}><IntradaySparkline data={intradayData[s.symbol]} positive={(s.pct ?? 0) >= 0} /></div>
               </div>
             </div>
           ))}
@@ -840,6 +888,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(null);
+  const [intradayData, setIntradayData] = useState({});
 
   // Dynamic User Portfolio State (Persistent)
   const [userStocks, setUserStocks] = useState(() => {
@@ -924,6 +973,17 @@ export default function App() {
       fetchLiveIndices(),
       fetchLiveMutualFunds(),
     ]);
+
+    // Fetch intraday data for all symbols in parallel
+    const intradayResults = await Promise.all(
+      symbols.map(async (sym) => {
+        const data = await fetchIntradayData(sym);
+        return { symbol: sym, data };
+      })
+    );
+    const intradayMap = {};
+    intradayResults.forEach(r => { if (r.data) intradayMap[r.symbol] = r.data; });
+    setIntradayData(intradayMap);
 
     if (priceData) {
       setStocks(STOCK_DEFS.map((def) => {
@@ -1013,7 +1073,7 @@ export default function App() {
       </div>
 
       <div style={{ padding:"24px", maxWidth:1400, margin:"0 auto" }}>
-        {tab==="stocks"    && <StocksTab stocks={stocks} loading={loading} lastRefresh={lastRefresh} refreshing={refreshing} onRefresh={() => loadData(true)} userStocks={userStocks} buyStock={buyStock} sellStock={sellStock} />}
+        {tab==="stocks"    && <StocksTab stocks={stocks} loading={loading} lastRefresh={lastRefresh} refreshing={refreshing} onRefresh={() => loadData(true)} userStocks={userStocks} buyStock={buyStock} sellStock={sellStock} intradayData={intradayData} />}
         {tab==="mf"        && <MutualFundsTab funds={funds} userMFs={userMFs} buyMF={buyMF} sellMF={sellMF} />}
         {tab==="portfolio" && <PortfolioTab stocks={stocks} userStocks={userStocks} funds={funds} userMFs={userMFs} />}
         {tab==="news"      && <NewsTab />}
