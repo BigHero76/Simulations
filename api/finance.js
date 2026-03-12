@@ -1,4 +1,19 @@
 // Fetch Yahoo Finance in Vercel Serverless
+
+// Helper: process items in batches with delay to avoid rate-limiting
+async function batchProcess(items, batchSize, delayMs, fn) {
+  const results = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(fn));
+    results.push(...batchResults.filter(Boolean));
+    if (i + batchSize < items.length) {
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+  return results;
+}
+
 export default async function handler(req, res) {
   const symbols = req.query.symbols;
   if (!symbols) return res.status(400).json({ error: 'Missing symbols' });
@@ -8,9 +23,9 @@ export default async function handler(req, res) {
 
   try {
     const symbolList = symbols.split(',');
-    const results = [];
     
-    await Promise.all(symbolList.map(async (sym) => {
+    // Process in batches of 8 with 300ms delay to avoid Yahoo rate limits
+    const results = await batchProcess(symbolList, 8, 300, async (sym) => {
       try {
         const url = `https://query2.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=1d`;
         const response = await fetch(url, {
@@ -19,7 +34,7 @@ export default async function handler(req, res) {
           }
         });
         
-        if (!response.ok) return;
+        if (!response.ok) return null;
 
         const json = await response.json();
         
@@ -30,19 +45,21 @@ export default async function handler(req, res) {
            const change = currentPrice - previousClose;
            const pct = previousClose ? (change / previousClose) * 100 : 0;
            
-           results.push({
+           return {
               symbol: sym,
               regularMarketPrice: currentPrice,
               regularMarketChange: change,
               regularMarketChangePercent: pct,
-              regularMarketVolume: null,
+              regularMarketVolume: meta.regularMarketVolume || null,
               marketCap: null
-           });
+           };
         }
+        return null;
       } catch (err) {
         console.error(`Vercel function err on sym ${sym}:`, err.message);
+        return null;
       }
-    }));
+    });
     
     res.status(200).json({ quoteResponse: { result: results } });
   } catch (error) {

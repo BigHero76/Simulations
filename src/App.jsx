@@ -1115,15 +1115,20 @@ export default function App() {
       fetchLiveMutualFunds(),
     ]);
 
-    // Fetch intraday data for all symbols in parallel
-    const intradayResults = await Promise.all(
-      symbols.map(async (sym) => {
-        const data = await fetchIntradayData(sym);
-        return { symbol: sym, data };
-      })
-    );
+    // Fetch intraday data in batches to avoid rate-limiting
     const intradayMap = {};
-    intradayResults.forEach(r => { if (r.data) intradayMap[r.symbol] = r.data; });
+    const BATCH_SIZE = 6;
+    for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
+      const batch = symbols.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(async (sym) => {
+          const data = await fetchIntradayData(sym);
+          return { symbol: sym, data };
+        })
+      );
+      batchResults.forEach(r => { if (r.data) intradayMap[r.symbol] = r.data; });
+      if (i + BATCH_SIZE < symbols.length) await new Promise(r => setTimeout(r, 400));
+    }
     setIntradayData(intradayMap);
 
     if (priceData) {
