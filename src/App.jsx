@@ -504,7 +504,7 @@ function PortfolioTab({ stocks, userStocks, funds, userMFs }) {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(100%,340px),1fr))", gap: 16 }}>
         <div style={{ background: "#0f0f0f", border: "1px solid #1a1a1a", borderRadius: 12, padding: "18px 20px" }}>
           <div style={{ color: "#e0e0e0", fontWeight: 700, marginBottom: 14, fontSize: 14 }}>Stock Holdings <span style={{ color: "#2a2a2a", fontWeight: 400, fontSize: 11 }}>· live prices</span></div>
           {enriched.length === 0 ? (
@@ -1125,6 +1125,7 @@ export default function App() {
     <div style={{ minHeight:"100vh", background:"#070707", color:"#888", fontFamily:"'DM Mono','Courier New',monospace" }}>
       <style>{`
         * { box-sizing:border-box; margin:0; padding:0; }
+        html, body { background:#070707; overflow-x:hidden; -webkit-overflow-scrolling:touch; }
         ::-webkit-scrollbar { width:4px; height:4px; }
         ::-webkit-scrollbar-track { background:#0a0a0a; }
         ::-webkit-scrollbar-thumb { background:#222; border-radius:2px; }
@@ -1134,7 +1135,7 @@ export default function App() {
       `}</style>
 
       {/* Header */}
-      <div style={{ background:"#0a0a0a", borderBottom:"1px solid #1a1a1a", padding:"14px 24px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+      <div style={{ background:"#0a0a0a", borderBottom:"1px solid #1a1a1a", padding:"12px 16px", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8 }}>
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
           <div style={{ width:32, height:32, borderRadius:8, background:"linear-gradient(135deg,#00e5a0,#00b4d8)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, color:"#000", fontSize:16 }}>N</div>
           <div>
@@ -1153,16 +1154,16 @@ export default function App() {
 
       <IndexBar indices={indices} loading={loading || refreshing} />
 
-      <div style={{ background:"#0a0a0a", borderBottom:"1px solid #1a1a1a", padding:"0 24px", display:"flex", gap:4 }}>
+      <div style={{ background:"#0a0a0a", borderBottom:"1px solid #1a1a1a", padding:"0 16px", display:"flex", gap:2, overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
         {tabs.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            style={{ padding:"14px 20px", background:"transparent", border:"none", borderBottom:`2px solid ${tab===t.id?"#00e5a0":"transparent"}`, color: tab===t.id?"#e0e0e0":"#3a3a3a", cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", gap:6, fontFamily:"'Space Grotesk',sans-serif", fontWeight: tab===t.id?600:400, transition:"all 0.2s" }}>
+            style={{ padding:"12px 14px", background:"transparent", border:"none", borderBottom:`2px solid ${tab===t.id?"#00e5a0":"transparent"}`, color: tab===t.id?"#e0e0e0":"#3a3a3a", cursor:"pointer", fontSize:12, display:"flex", alignItems:"center", gap:5, fontFamily:"'Space Grotesk',sans-serif", fontWeight: tab===t.id?600:400, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
             {t.icon} {t.label}
           </button>
         ))}
       </div>
 
-      <div style={{ padding:"24px", maxWidth:1400, margin:"0 auto" }}>
+      <div style={{ padding:"16px", maxWidth:1400, margin:"0 auto" }}>
         {tab==="stocks"    && <StocksTab stocks={stocks} loading={loading} lastRefresh={lastRefresh} refreshing={refreshing} onRefresh={() => loadData(true)} userStocks={userStocks} buyStock={buyStock} sellStock={sellStock} intradayData={intradayData} watchlist={watchlist} toggleWatchlist={toggleWatchlist} />}
         {tab==="watchlist" && <WatchlistTab stocks={stocks} watchlist={watchlist} toggleWatchlist={toggleWatchlist} intradayData={intradayData} userStocks={userStocks} buyStock={buyStock} sellStock={sellStock} />}
         {tab==="mf"        && <MutualFundsTab funds={funds} userMFs={userMFs} buyMF={buyMF} sellMF={sellMF} />}
