@@ -3,16 +3,68 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "rec
 
 // ── Static definitions ────────────────────────────────────────────────────────
 const STOCK_DEFS = [
-  { symbol: "RELIANCE",   name: "Reliance Industries",        sector: "Energy"   },
-  { symbol: "TCS",        name: "Tata Consultancy Services",  sector: "IT"       },
-  { symbol: "HDFCBANK",   name: "HDFC Bank",                  sector: "Banking"  },
-  { symbol: "INFY",       name: "Infosys",                    sector: "IT"       },
-  { symbol: "ICICIBANK",  name: "ICICI Bank",                 sector: "Banking"  },
-  { symbol: "WIPRO",      name: "Wipro Ltd",                  sector: "IT"       },
-  { symbol: "BAJFINANCE", name: "Bajaj Finance",              sector: "NBFC"     },
-  { symbol: "ASIANPAINT", name: "Asian Paints",               sector: "Consumer" },
-  { symbol: "TATAMOTORS", name: "Tata Motors",                sector: "Auto"     },
-  { symbol: "SUNPHARMA",  name: "Sun Pharmaceutical",         sector: "Pharma"   },
+  // ── Energy ──
+  { symbol: "RELIANCE",    name: "Reliance Industries",        sector: "Energy"   },
+  { symbol: "ONGC",        name: "Oil & Natural Gas Corp",     sector: "Energy"   },
+  { symbol: "NTPC",        name: "NTPC Ltd",                   sector: "Energy"   },
+  { symbol: "POWERGRID",   name: "Power Grid Corp",            sector: "Energy"   },
+  { symbol: "ADANIGREEN",  name: "Adani Green Energy",         sector: "Energy"   },
+  // ── IT ──
+  { symbol: "TCS",         name: "Tata Consultancy Services",  sector: "IT"       },
+  { symbol: "INFY",        name: "Infosys",                    sector: "IT"       },
+  { symbol: "WIPRO",       name: "Wipro Ltd",                  sector: "IT"       },
+  { symbol: "HCLTECH",     name: "HCL Technologies",           sector: "IT"       },
+  { symbol: "TECHM",       name: "Tech Mahindra",              sector: "IT"       },
+  { symbol: "LTIM",        name: "LTIMindtree",                sector: "IT"       },
+  // ── Banking ──
+  { symbol: "HDFCBANK",    name: "HDFC Bank",                  sector: "Banking"  },
+  { symbol: "ICICIBANK",   name: "ICICI Bank",                 sector: "Banking"  },
+  { symbol: "SBIN",        name: "State Bank of India",        sector: "Banking"  },
+  { symbol: "KOTAKBANK",   name: "Kotak Mahindra Bank",        sector: "Banking"  },
+  { symbol: "AXISBANK",    name: "Axis Bank",                  sector: "Banking"  },
+  { symbol: "INDUSINDBK",  name: "IndusInd Bank",              sector: "Banking"  },
+  // ── NBFC ──
+  { symbol: "BAJFINANCE",  name: "Bajaj Finance",              sector: "NBFC"     },
+  { symbol: "BAJAJFINSV",  name: "Bajaj Finserv",              sector: "NBFC"     },
+  // ── Consumer / FMCG ──
+  { symbol: "ASIANPAINT",  name: "Asian Paints",               sector: "Consumer" },
+  { symbol: "HINDUNILVR",  name: "Hindustan Unilever",         sector: "Consumer" },
+  { symbol: "ITC",         name: "ITC Ltd",                    sector: "Consumer" },
+  { symbol: "NESTLEIND",   name: "Nestle India",               sector: "Consumer" },
+  { symbol: "TITAN",       name: "Titan Company",              sector: "Consumer" },
+  { symbol: "BRITANNIA",   name: "Britannia Industries",       sector: "Consumer" },
+  // ── Auto ──
+  { symbol: "TATAMOTORS",  name: "Tata Motors",                sector: "Auto"     },
+  { symbol: "MARUTI",      name: "Maruti Suzuki",              sector: "Auto"     },
+  { symbol: "M&M",         name: "Mahindra & Mahindra",        sector: "Auto"     },
+  { symbol: "BAJAJ-AUTO",  name: "Bajaj Auto",                 sector: "Auto"     },
+  { symbol: "EICHERMOT",   name: "Eicher Motors",              sector: "Auto"     },
+  // ── Pharma ──
+  { symbol: "SUNPHARMA",   name: "Sun Pharmaceutical",         sector: "Pharma"   },
+  { symbol: "DRREDDY",     name: "Dr Reddy's Laboratories",    sector: "Pharma"   },
+  { symbol: "CIPLA",       name: "Cipla Ltd",                  sector: "Pharma"   },
+  { symbol: "APOLLOHOSP",  name: "Apollo Hospitals",           sector: "Pharma"   },
+  { symbol: "DIVISLAB",    name: "Divi's Laboratories",        sector: "Pharma"   },
+  // ── Metals & Mining ──
+  { symbol: "TATASTEEL",   name: "Tata Steel",                 sector: "Metals"   },
+  { symbol: "JSWSTEEL",    name: "JSW Steel",                  sector: "Metals"   },
+  { symbol: "HINDALCO",    name: "Hindalco Industries",        sector: "Metals"   },
+  { symbol: "COALINDIA",   name: "Coal India",                 sector: "Metals"   },
+  // ── Telecom ──
+  { symbol: "BHARTIARTL",  name: "Bharti Airtel",              sector: "Telecom"  },
+  // ── Cement ──
+  { symbol: "ULTRACEMCO",  name: "UltraTech Cement",           sector: "Cement"   },
+  { symbol: "GRASIM",      name: "Grasim Industries",          sector: "Cement"   },
+  // ── Infrastructure ──
+  { symbol: "LT",          name: "Larsen & Toubro",            sector: "Infra"    },
+  { symbol: "ADANIENT",    name: "Adani Enterprises",          sector: "Infra"    },
+  { symbol: "ADANIPORTS",  name: "Adani Ports & SEZ",          sector: "Infra"    },
+  // ── Insurance ──
+  { symbol: "SBILIFE",     name: "SBI Life Insurance",         sector: "Insurance"},
+  { symbol: "HDFCLIFE",    name: "HDFC Life Insurance",        sector: "Insurance"},
+  // ── Chemicals ──
+  { symbol: "PIDILITIND",  name: "Pidilite Industries",        sector: "Chemicals"},
+  { symbol: "UPL",         name: "UPL Ltd",                    sector: "Chemicals"},
 ];
 
 const MUTUAL_FUNDS = [
@@ -484,7 +536,7 @@ function PortfolioTab({ stocks, userStocks, funds, userMFs }) {
     acc[s.sector] = (acc[s.sector] || 0) + val;
     return acc;
   }, {});
-  const sectorColors = { Energy:"#ff6b35", IT:"#00b4d8", Banking:"#f5a623", NBFC:"#7c3aed", Pharma:"#00e5a0" };
+  const sectorColors = { Energy:"#ff6b35", IT:"#00b4d8", Banking:"#f5a623", NBFC:"#7c3aed", Pharma:"#00e5a0", Consumer:"#e879f9", Auto:"#38bdf8", Metals:"#94a3b8", Telecom:"#facc15", Cement:"#a78bfa", Infra:"#fb923c", Insurance:"#2dd4bf", Chemicals:"#f472b6" };
 
   return (
     <div>

@@ -12,11 +12,37 @@ A high-performance, real-time Indian Stock Market tracking dashboard and portfol
 
 ## ✨ Features
 
-- **🔴 Live Market Tracking:** Streams live stock prices (NIFTY 50, SENSEX, Equities) dynamically fetching from Google Finance via a dedicated Express.js backend.
-- **🏦 Mutual Funds (AMFI):** Automatically parses daily official `NAVAll.txt` feeds from the Association of Mutual Funds in India (AMFI).
-- **💼 Dynamic Portfolio Manager:** Add or remove stocks & mutual funds with interactive `+` and `-` controls to build a highly personalized, unified P&L view. P&L, sector allocations, and invested metrics update in real-time.
-- **🤖 Live AI Advisor:** Integrated directly with the Google Gemini SDK. The AI is fed your live portfolio and real-time market indices as context, providing bespoke buy/hold/sell advice and sentiment analysis.
-- **🎨 Modern UI:** A fully custom, sleek, glass-morphism dark mode UI utilizing zero external component libraries.
+- **🔴 Live Market Tracking:** Streams live stock prices (NIFTY 50, SENSEX, NIFTY BANK, NIFTY IT, INDIA VIX) dynamically fetched via Yahoo Finance through a dedicated Express.js backend proxy.
+- **📊 50 NSE Stocks Tracked:** Covers **50 popular equities** across **13 sectors** — Energy, IT, Banking, NBFC, Consumer/FMCG, Auto, Pharma, Metals, Telecom, Cement, Infrastructure, Insurance, and Chemicals.
+- **🏦 Mutual Funds (AMFI):** Automatically parses daily official `NAVAll.txt` feeds from the Association of Mutual Funds in India (AMFI) for live NAV data.
+- **💼 Dynamic Portfolio Manager:** Add or remove stocks & mutual funds with interactive `+` and `−` controls to build a highly personalized, unified P&L view. P&L, sector allocations, and invested metrics update in real-time. Portfolio state persists via `localStorage`.
+- **👁️ Watchlist:** Star any stock to add it to a personal watchlist tab with dedicated tracking and intraday sparklines.
+- **📰 Live News Feed:** Aggregated financial news headlines for all tracked stocks via Yahoo Finance RSS, filterable by symbol.
+- **📈 1-Year Price Charts:** Click any stock card to view an interactive 1-year historical price chart powered by Recharts.
+- **⚡ Intraday Sparklines:** Each stock card displays an intraday mini-chart (5-minute intervals) showing the day's price action at a glance.
+- **🤖 Live AI Advisor:** Integrated directly with the Google Gemini SDK. The AI is fed your live portfolio and real-time market indices as context, providing bespoke buy/hold/sell advice, sentiment analysis, and macro insights.
+- **🔒 Secure API Key Handling:** API keys are stored in a `.env` file excluded from version control via `.gitignore`, preventing accidental exposure.
+- **🎨 Modern UI:** A fully custom, sleek, dark-mode terminal-style UI with shimmer loading skeletons, smooth transitions, and zero external component libraries.
+
+---
+
+## 📊 Tracked Stocks (50)
+
+| Sector | Stocks |
+|---|---|
+| **Energy** | RELIANCE, ONGC, NTPC, POWERGRID, ADANIGREEN |
+| **IT** | TCS, INFY, WIPRO, HCLTECH, TECHM, LTIM |
+| **Banking** | HDFCBANK, ICICIBANK, SBIN, KOTAKBANK, AXISBANK, INDUSINDBK |
+| **NBFC** | BAJFINANCE, BAJAJFINSV |
+| **Consumer** | ASIANPAINT, HINDUNILVR, ITC, NESTLEIND, TITAN, BRITANNIA |
+| **Auto** | TATAMOTORS, MARUTI, M&M, BAJAJ-AUTO, EICHERMOT |
+| **Pharma** | SUNPHARMA, DRREDDY, CIPLA, APOLLOHOSP, DIVISLAB |
+| **Metals** | TATASTEEL, JSWSTEEL, HINDALCO, COALINDIA |
+| **Telecom** | BHARTIARTL |
+| **Cement** | ULTRACEMCO, GRASIM |
+| **Infra** | LT, ADANIENT, ADANIPORTS |
+| **Insurance** | SBILIFE, HDFCLIFE |
+| **Chemicals** | PIDILITIND, UPL |
 
 ---
 
@@ -39,7 +65,9 @@ npm install
 Create a `.env` file in the root directory and add your free Google AI Studio API key.
 ```env
 VITE_GEMINI_API_KEY=your_api_key_here
+GEMINI_API_KEY=your_api_key_here
 ```
+> **Note:** The `.env` file is git-ignored — your keys will never be committed to the repository.
 
 ### 4. Start the Application
 You will need **two terminal windows**.
@@ -48,7 +76,7 @@ You will need **two terminal windows**.
 ```bash
 node server.js
 ```
-*This robust express server runs on port `3001` and scrapes Google Finance while bypassing their User-Agent blocks.*
+*This robust express server runs on port `3001` and proxies Yahoo Finance while bypassing their User-Agent blocks.*
 
 **Terminal 2 (React Frontend):**
 ```bash
@@ -61,17 +89,33 @@ npm run dev
 ## 🛠 Tech Stack
 
 - **Frontend:** React + Vite (Vanilla CSS)
+- **Charts:** Recharts (line charts & sparklines)
 - **Backend:** Node.js + Express
-- **APIs:** Google Finance (Stocks & Indices), AMFI (Mutual Funds), `@google/genai` (LLM)
+- **APIs:** Yahoo Finance (Stocks, Indices, Charts & News), AMFI (Mutual Funds), `@google/genai` (Gemini 2.0 LLM)
+- **Deployment:** Vercel (Serverless Functions)
 
 ---
 
-## Further Improvements/Enhancements
+## 📁 Project Structure
 
-- **Integration of Live AI Advisor**
-- **Integration of Live Portfolio Manager**
-- **Integration of Live Mutual Fund Tracker**
-- **Integration of Live Stock Market Tracker**
+```
+nse-dashboard/
+├── api/                  # Vercel serverless functions
+│   ├── chat.js           # Gemini AI chat endpoint
+│   ├── finance.js        # Stock quote proxy
+│   ├── history.js        # 1-year historical data
+│   ├── intraday.js       # Intraday chart data
+│   └── news.js           # Yahoo Finance news
+├── src/
+│   ├── App.jsx           # Main application (all components)
+│   ├── App.css           # Global styles
+│   └── main.jsx          # React entry point
+├── server.js             # Local Express dev proxy
+├── vercel.json           # Vercel deployment config
+├── .env                  # API keys (git-ignored)
+└── .gitignore            # Includes .env exclusion
+```
 
 ---
+
 *Disclaimer: This is a simulation project. It is not intended as certified financial advice. Stock market data may be delayed.*
