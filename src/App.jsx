@@ -293,7 +293,7 @@ function IndexBar({ indices, loading }) {
 }
 
 // ── Stocks Tab ────────────────────────────────────────────────────────────────
-function StocksTab({ stocks, loading, lastRefresh, onRefresh, refreshing, userStocks, buyStock, sellStock, intradayData = {} }) {
+function StocksTab({ stocks, loading, lastRefresh, onRefresh, refreshing, userStocks, buyStock, sellStock, intradayData = {}, watchlist = [], toggleWatchlist }) {
   const [sectorFilter, setSectorFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [chartAsset, setChartAsset] = useState(null);
@@ -340,6 +340,11 @@ function StocksTab({ stocks, loading, lastRefresh, onRefresh, refreshing, userSt
               onMouseLeave={(e) => e.currentTarget.style.borderColor = "#1a1a1a"}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <button onClick={(e) => { e.stopPropagation(); toggleWatchlist(s.symbol); }}
+                    style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1, color: watchlist.includes(s.symbol) ? "#f5a623" : "#2a2a2a", transition: "color 0.2s" }}
+                    title={watchlist.includes(s.symbol) ? "Remove from watchlist" : "Add to watchlist"}>
+                    {watchlist.includes(s.symbol) ? "★" : "☆"}
+                  </button>
                   <span style={{ color: "#e0e0e0", fontWeight: 700, fontSize: 15, fontFamily: "monospace" }}>{s.symbol}</span>
                   <span style={{ background: "#161616", color: "#444", fontSize: 10, padding: "2px 8px", borderRadius: 4 }}>{s.sector}</span>
                 </div>
@@ -570,6 +575,74 @@ function PortfolioTab({ stocks, userStocks, funds, userMFs }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Watchlist Tab ──────────────────────────────────────────────────────────────
+function WatchlistTab({ stocks, watchlist, toggleWatchlist, intradayData = {}, userStocks, buyStock, sellStock }) {
+  const [chartAsset, setChartAsset] = useState(null);
+  const watched = stocks.filter(s => watchlist.includes(s.symbol));
+
+  return (
+    <div>
+      {watched.length === 0 ? (
+        <div style={{ textAlign: "center", padding: 80, color: "#333" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>👁️</div>
+          <div style={{ fontSize: 15, marginBottom: 8, color: "#555" }}>Your watchlist is empty</div>
+          <div style={{ fontSize: 12, color: "#2a2a2a" }}>Click the ☆ icon on any stock card in the Stocks tab to start watching</div>
+        </div>
+      ) : (
+        <>
+          <div style={{ color: "#333", fontSize: 12, marginBottom: 16 }}>{watched.length} stock{watched.length !== 1 ? "s" : ""} watched</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(340px,1fr))", gap: 12 }}>
+            {watched.map(s => (
+              <div key={s.symbol}
+                onClick={() => setChartAsset(s)}
+                style={{ background: "#0f0f0f", border: "1px solid #1a1a1a", borderRadius: 12, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", transition: "border-color 0.2s" }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = "#2e2e2e"}
+                onMouseLeave={e => e.currentTarget.style.borderColor = "#1a1a1a"}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <button onClick={(e) => { e.stopPropagation(); toggleWatchlist(s.symbol); }}
+                      style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1, color: "#f5a623" }}
+                      title="Remove from watchlist">
+                      ★
+                    </button>
+                    <span style={{ color: "#e0e0e0", fontWeight: 700, fontSize: 15, fontFamily: "monospace" }}>{s.symbol}</span>
+                    <span style={{ background: "#161616", color: "#444", fontSize: 10, padding: "2px 8px", borderRadius: 4 }}>{s.sector}</span>
+                  </div>
+                  <div style={{ color: "#3a3a3a", fontSize: 12, marginBottom: 10 }}>{s.name}</div>
+                  <div style={{ display: "flex", gap: 14, fontSize: 11, color: "#2e2e2e" }}>
+                    <span>Vol: {fmtVol(s.volume)}</span>
+                    <span>MCap: {fmtMcap(s.mcap)}</span>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  {s.price != null ? (
+                    <>
+                      <div style={{ color: "#e0e0e0", fontWeight: 700, fontSize: 18, fontFamily: "monospace", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
+                        {fmtCur(s.price)}
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <button onClick={(e) => { e.stopPropagation(); sellStock(s); }} style={{ width: 22, height: 22, borderRadius: 4, background: "#ff4d6d20", color: "#ff4d6d", border: "1px solid #ff4d6d50", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, lineHeight: 1 }}>−</button>
+                          <button onClick={(e) => { e.stopPropagation(); buyStock(s); }} style={{ width: 22, height: 22, borderRadius: 4, background: "#00e5a020", color: "#00e5a0", border: "1px solid #00e5a050", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>+</button>
+                        </div>
+                      </div>
+                      <div style={{ color: clr(s.change), fontSize: 13, fontFamily: "monospace", marginTop: 4 }}>{sign(s.change)}{fmt(s.change)} ({sign(s.pct)}{s.pct?.toFixed(2)}%)</div>
+                      {(() => {
+                        const owned = userStocks.find(u => u.symbol === s.symbol);
+                        return owned ? <div style={{ color: "#00b4d8", fontSize: 11, marginTop: 4 }}>Owned: {owned.qty}</div> : null;
+                      })()}
+                    </>
+                  ) : <><Skeleton w={110} h={22} /><div style={{ height: 6 }} /><Skeleton w={80} h={14} /></>}
+                  <div style={{ marginTop: 6 }}><IntradaySparkline data={intradayData[s.symbol]} positive={(s.pct ?? 0) >= 0} /></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {chartAsset && <ChartModal symbol={chartAsset.symbol} name={chartAsset.name} onClose={() => setChartAsset(null)} />}
     </div>
   );
 }
@@ -890,6 +963,22 @@ export default function App() {
   const [lastRefresh, setLastRefresh] = useState(null);
   const [intradayData, setIntradayData] = useState({});
 
+  // Watchlist State (Persistent)
+  const [watchlist, setWatchlist] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nse_watchlist');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('nse_watchlist', JSON.stringify(watchlist));
+  }, [watchlist]);
+
+  const toggleWatchlist = (symbol) => {
+    setWatchlist(prev => prev.includes(symbol) ? prev.filter(s => s !== symbol) : [...prev, symbol]);
+  };
+
   // Dynamic User Portfolio State (Persistent)
   const [userStocks, setUserStocks] = useState(() => {
     try {
@@ -1023,6 +1112,7 @@ export default function App() {
 
   const tabs = [
     { id:"stocks",    label:"Stocks",      icon:"📈" },
+    { id:"watchlist", label:"Watchlist",    icon:"👁️" },
     { id:"mf",        label:"Mutual Funds", icon:"🏦" },
     { id:"portfolio", label:"Portfolio",    icon:"💼" },
     { id:"news",      label:"News",        icon:"📰" },
@@ -1073,7 +1163,8 @@ export default function App() {
       </div>
 
       <div style={{ padding:"24px", maxWidth:1400, margin:"0 auto" }}>
-        {tab==="stocks"    && <StocksTab stocks={stocks} loading={loading} lastRefresh={lastRefresh} refreshing={refreshing} onRefresh={() => loadData(true)} userStocks={userStocks} buyStock={buyStock} sellStock={sellStock} intradayData={intradayData} />}
+        {tab==="stocks"    && <StocksTab stocks={stocks} loading={loading} lastRefresh={lastRefresh} refreshing={refreshing} onRefresh={() => loadData(true)} userStocks={userStocks} buyStock={buyStock} sellStock={sellStock} intradayData={intradayData} watchlist={watchlist} toggleWatchlist={toggleWatchlist} />}
+        {tab==="watchlist" && <WatchlistTab stocks={stocks} watchlist={watchlist} toggleWatchlist={toggleWatchlist} intradayData={intradayData} userStocks={userStocks} buyStock={buyStock} sellStock={sellStock} />}
         {tab==="mf"        && <MutualFundsTab funds={funds} userMFs={userMFs} buyMF={buyMF} sellMF={sellMF} />}
         {tab==="portfolio" && <PortfolioTab stocks={stocks} userStocks={userStocks} funds={funds} userMFs={userMFs} />}
         {tab==="news"      && <NewsTab />}
