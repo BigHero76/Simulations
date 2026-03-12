@@ -27,7 +27,8 @@ export default async function handler(req, res) {
     // Process in batches of 8 with 300ms delay to avoid Yahoo rate limits
     const results = await batchProcess(symbolList, 8, 300, async (sym) => {
       try {
-        const url = `https://query2.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=1d`;
+        const encodedSym = encodeURIComponent(sym);
+        const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodedSym}?interval=1d&range=1d`;
         const response = await fetch(url, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'

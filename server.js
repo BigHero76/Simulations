@@ -35,7 +35,8 @@ app.get('/api/finance/quote', async (req, res) => {
     // Process in batches of 8 with 300ms delay to avoid Yahoo rate limits
     const results = await batchProcess(symbolList, 8, 300, async (sym) => {
       try {
-        const url = `https://query2.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=1d`;
+        const encodedSym = encodeURIComponent(sym);
+        const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodedSym}?interval=1d&range=1d`;
         const response = await fetch(url, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -85,7 +86,8 @@ app.get('/api/finance/history', async (req, res) => {
   if (!symbol) return res.status(400).json({ error: 'Missing symbol' });
   
   try {
-    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1y`;
+    const encodedSym = encodeURIComponent(symbol);
+    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodedSym}?interval=1d&range=1y`;
     const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
     if (!response.ok) throw new Error(response.statusText);
     const json = await response.json();
