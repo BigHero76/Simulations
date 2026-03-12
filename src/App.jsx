@@ -82,7 +82,8 @@ const MUTUAL_FUNDS = [
 async function fetchLivePrices(symbols) {
   try {
     const querySymbols = symbols.map(s => `${s}.NS`).join(',');
-    const url = import.meta.env.PROD ? `/api/finance?symbols=${querySymbols}` : `http://localhost:3001/api/finance/quote?symbols=${querySymbols}`;
+    const params = new URLSearchParams({ symbols: querySymbols });
+    const url = import.meta.env.PROD ? `/api/finance?${params.toString()}` : `http://localhost:3001/api/finance/quote?${params.toString()}`;
     const res = await fetch(url);
     const data = await res.json();
     
@@ -112,7 +113,8 @@ async function fetchLiveIndices() {
       '^INDIAVIX': 'INDIA VIX'
     };
     const querySymbols = Object.keys(indexMap).join(',');
-    const url = import.meta.env.PROD ? `/api/finance?symbols=${querySymbols}` : `http://localhost:3001/api/finance/quote?symbols=${querySymbols}`;
+    const params = new URLSearchParams({ symbols: querySymbols });
+    const url = import.meta.env.PROD ? `/api/finance?${params.toString()}` : `http://localhost:3001/api/finance/quote?${params.toString()}`;
     const res = await fetch(url);
     const data = await res.json();
     
@@ -131,7 +133,8 @@ async function fetchLiveIndices() {
 
 async function fetchIntradayData(symbol) {
   try {
-    const url = import.meta.env.PROD ? `/api/intraday?symbol=${symbol}.NS` : `http://localhost:3001/api/finance/chart/${symbol}.NS?interval=5m&range=1d`;
+    const params = new URLSearchParams({ symbol: `${symbol}.NS`, interval: '5m', range: '1d' });
+    const url = import.meta.env.PROD ? `/api/intraday?${params.toString()}` : `http://localhost:3001/api/finance/chart/${symbol}.NS?interval=5m&range=1d`;
     const res = await fetch(url);
     const data = await res.json();
     if (data.intraday) return data.intraday;
@@ -154,7 +157,8 @@ async function fetchIntradayData(symbol) {
 
 async function fetchLiveHistory(symbol) {
   try {
-    const url = import.meta.env.PROD ? `/api/history?symbol=${symbol}.NS` : `http://localhost:3001/api/finance/history?symbol=${symbol}.NS`;
+    const params = new URLSearchParams({ symbol: `${symbol}.NS` });
+    const url = import.meta.env.PROD ? `/api/history?${params.toString()}` : `http://localhost:3001/api/finance/history?${params.toString()}`;
     const res = await fetch(url);
     const data = await res.json();
     if (!data.history) return null;
@@ -167,7 +171,8 @@ async function fetchLiveHistory(symbol) {
 
 async function fetchLiveNews(symbol) {
   try {
-    const url = import.meta.env.PROD ? `/api/news?symbol=${symbol}.NS` : `http://localhost:3001/api/finance/news?symbol=${symbol}.NS`;
+    const params = new URLSearchParams({ symbol: `${symbol}.NS` });
+    const url = import.meta.env.PROD ? `/api/news?${params.toString()}` : `http://localhost:3001/api/finance/news?${params.toString()}`;
     const res = await fetch(url);
     const data = await res.json();
     return data.news || [];
@@ -180,7 +185,8 @@ async function fetchLiveNews(symbol) {
 async function fetchAllNews(symbols) {
   try {
     const querySymbols = symbols.map(s => `${s}.NS`).join(',');
-    const url = import.meta.env.PROD ? `/api/news?symbols=${querySymbols}` : `http://localhost:3001/api/finance/news?symbols=${querySymbols}`;
+    const params = new URLSearchParams({ symbols: querySymbols });
+    const url = import.meta.env.PROD ? `/api/news?${params.toString()}` : `http://localhost:3001/api/finance/news?${params.toString()}`;
     const res = await fetch(url);
     const data = await res.json();
     return data.news || {};
