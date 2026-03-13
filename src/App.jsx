@@ -755,23 +755,32 @@ function MarketTab({ stocks }) {
   })).filter(s => s.children.length > 0);
 
   const CustomContent = (props) => {
-    const { x, y, width, height, index, name, change } = props;
-    const color = change >= 0 ? `rgba(0, 229, 160, ${Math.min(0.2 + (change/3), 0.9)})` : `rgba(255, 77, 109, ${Math.min(0.2 + (Math.abs(change)/3), 0.9)})`;
+    const { x, y, width, height, name, change } = props;
+    // Safety check: if change is undefined (e.g. at sector level), use a neutral color or skip
+    const isLeaf = change !== undefined;
+    const color = isLeaf 
+      ? (change >= 0 ? `rgba(0, 229, 160, ${Math.min(0.2 + (change/3), 0.9)})` : `rgba(255, 77, 109, ${Math.min(0.2 + (Math.abs(change)/3), 0.9)})`)
+      : "#1a1a1a";
     
     if (width < 30 || height < 20) return null;
 
     return (
       <g>
-        <rect x={x} y={y} width={width} height={height} style={{ fill: color, stroke: '#070707', strokeWidth: 1 }} />
-        {width > 50 && height > 30 && (
+        <rect x={x} y={y} width={width} height={height} style={{ fill: color, stroke: '#070707', strokeWidth: isLeaf ? 1 : 2 }} />
+        {width > 50 && height > 30 && isLeaf && (
           <>
             <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={700} style={{ pointerEvents: 'none' }}>
               {name}
             </text>
             <text x={x + width / 2} y={y + height / 2 + 10} textAnchor="middle" fill="#fff" fontSize={9} opacity={0.8} style={{ pointerEvents: 'none' }}>
-              {change >= 0 ? '+' : ''}{change.toFixed(2)}%
+              {change >= 0 ? '+' : ''}{parseFloat(change || 0).toFixed(2)}%
             </text>
           </>
+        )}
+        {width > 60 && height > 40 && !isLeaf && (
+          <text x={x + 4} y={y + 14} fill="#444" fontSize={10} fontWeight={700} opacity={0.5} style={{ pointerEvents: 'none' }}>
+            {name}
+          </text>
         )}
       </g>
     );
@@ -801,11 +810,16 @@ function MarketTab({ stocks }) {
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 const data = payload[0].payload;
+                const hasChange = data.change !== undefined;
                 return (
                   <div style={{ background: "#0a0a0a", border: "1px solid #222", borderRadius: 8, padding: "8px 12px", fontFamily: "monospace" }}>
                     <div style={{ color: "#e0e0e0", fontWeight: 700 }}>{data.name}</div>
-                    <div style={{ color: clr(data.change), fontSize: 12 }}>{sign(data.change)}{data.change?.toFixed(2)}%</div>
-                    <div style={{ color: "#444", fontSize: 11, marginTop: 4 }}>Price: {fmtCur(data.price)}</div>
+                    {hasChange && (
+                      <div style={{ color: clr(data.change), fontSize: 12 }}>{sign(data.change)}{parseFloat(data.change).toFixed(2)}%</div>
+                    )}
+                    {data.price && (
+                      <div style={{ color: "#444", fontSize: 11, marginTop: 4 }}>Price: {fmtCur(data.price)}</div>
+                    )}
                   </div>
                 );
               }
