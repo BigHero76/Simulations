@@ -769,16 +769,16 @@ function MarketTab({ stocks }) {
         <rect x={x} y={y} width={width} height={height} style={{ fill: color, stroke: '#070707', strokeWidth: isLeaf ? 1 : 2 }} />
         {width > 50 && height > 30 && isLeaf && (
           <>
-            <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={700} style={{ pointerEvents: 'none' }}>
+            <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fill="#fff" fontSize={13} fontWeight={700} style={{ pointerEvents: 'none', fontFamily: "'Space Grotesk', sans-serif" }}>
               {name}
             </text>
-            <text x={x + width / 2} y={y + height / 2 + 10} textAnchor="middle" fill="#fff" fontSize={9} opacity={0.8} style={{ pointerEvents: 'none' }}>
+            <text x={x + width / 2} y={y + height / 2 + 12} textAnchor="middle" fill="#fff" fontSize={10} fontWeight={600} opacity={0.9} style={{ pointerEvents: 'none', fontFamily: "'Space Grotesk', sans-serif" }}>
               {change >= 0 ? '+' : ''}{parseFloat(change || 0).toFixed(2)}%
             </text>
           </>
         )}
         {width > 60 && height > 40 && !isLeaf && (
-          <text x={x + 4} y={y + 14} fill="#444" fontSize={10} fontWeight={700} opacity={0.5} style={{ pointerEvents: 'none' }}>
+          <text x={x + 6} y={y + 16} fill="#fff" fontSize={12} fontWeight={700} opacity={0.4} style={{ pointerEvents: 'none', fontFamily: "'Space Grotesk', sans-serif" }}>
             {name}
           </text>
         )}
