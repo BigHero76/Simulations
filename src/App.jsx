@@ -756,31 +756,38 @@ function MarketTab({ stocks }) {
 
   const CustomContent = (props) => {
     const { x, y, width, height, name, change } = props;
-    // Safety check: if change is undefined (e.g. at sector level), use a neutral color or skip
     const isLeaf = change !== undefined;
     const color = isLeaf 
       ? (change >= 0 ? `rgba(0, 229, 160, ${Math.min(0.2 + (change/3), 0.9)})` : `rgba(255, 77, 109, ${Math.min(0.2 + (Math.abs(change)/3), 0.9)})`)
-      : "#1a1a1a";
+      : "#151515";
     
-    if (width < 30 || height < 20) return null;
+    if (width < 34 || height < 24) return null;
+
+    // Dynamic Font Sizing
+    const symSize = Math.max(8, Math.min(13, width / 7, height / 3.5));
+    const chgSize = Math.max(7, Math.min(10, width / 8, height / 5));
+    const showChg = height > 35 && width > 45;
 
     return (
       <g>
         <rect x={x} y={y} width={width} height={height} style={{ fill: color, stroke: '#070707', strokeWidth: isLeaf ? 1 : 2 }} />
-        {width > 50 && height > 30 && isLeaf && (
-          <>
-            <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fill="#fff" fontSize={13} fontWeight={700} style={{ pointerEvents: 'none', fontFamily: "'Space Grotesk', sans-serif" }}>
+        {isLeaf ? (
+          <g>
+            <text x={x + width / 2} y={y + height / 2 - (showChg ? 2 : -4)} textAnchor="middle" fill="#fff" fontSize={symSize} fontWeight={700} style={{ pointerEvents: 'none', fontFamily: "'DM Mono', monospace", letterSpacing: "-0.02em" }}>
               {name}
             </text>
-            <text x={x + width / 2} y={y + height / 2 + 12} textAnchor="middle" fill="#fff" fontSize={10} fontWeight={600} opacity={0.9} style={{ pointerEvents: 'none', fontFamily: "'Space Grotesk', sans-serif" }}>
-              {change >= 0 ? '+' : ''}{parseFloat(change || 0).toFixed(2)}%
+            {showChg && (
+              <text x={x + width / 2} y={y + height / 2 + 11} textAnchor="middle" fill="#fff" fontSize={chgSize} fontWeight={500} opacity={0.8} style={{ pointerEvents: 'none', fontFamily: "'DM Mono', monospace" }}>
+                {change >= 0 ? '+' : ''}{parseFloat(change || 0).toFixed(2)}%
+              </text>
+            )}
+          </g>
+        ) : (
+          width > 50 && height > 25 && (
+            <text x={x + 6} y={y + 16} fill="#fff" fontSize={11} fontWeight={600} opacity={0.3} style={{ pointerEvents: 'none', fontFamily: "'Space Grotesk', sans-serif", textTransform: "uppercase" }}>
+              {name}
             </text>
-          </>
-        )}
-        {width > 60 && height > 40 && !isLeaf && (
-          <text x={x + 6} y={y + 16} fill="#fff" fontSize={12} fontWeight={700} opacity={0.4} style={{ pointerEvents: 'none', fontFamily: "'Space Grotesk', sans-serif" }}>
-            {name}
-          </text>
+          )
         )}
       </g>
     );
