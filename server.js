@@ -82,12 +82,12 @@ app.get('/api/finance/quote', async (req, res) => {
 
 // Fetch historical chart data for 1 year
 app.get('/api/finance/history', async (req, res) => {
-  const symbol = req.query.symbol;
+  const { symbol, range = '1y', interval = '1d' } = req.query;
   if (!symbol) return res.status(400).json({ error: 'Missing symbol' });
   
   try {
     const encodedSym = encodeURIComponent(symbol);
-    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodedSym}?interval=1d&range=1y`;
+    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodedSym}?interval=${interval}&range=${range}`;
     const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
     if (!response.ok) throw new Error(response.statusText);
     const json = await response.json();

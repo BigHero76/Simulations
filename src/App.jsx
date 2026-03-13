@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Treemap } from "recharts";
 
 // ── Static definitions ────────────────────────────────────────────────────────
 const STOCK_DEFS = [
@@ -155,9 +155,9 @@ async function fetchIntradayData(symbol) {
   }
 }
 
-async function fetchLiveHistory(symbol) {
+async function fetchLiveHistory(symbol, range = '1y', interval = '1d') {
   try {
-    const params = new URLSearchParams({ symbol: `${symbol}.NS` });
+    const params = new URLSearchParams({ symbol: `${symbol}.NS`, range, interval });
     const url = import.meta.env.PROD ? `/api/history?${params.toString()}` : `http://localhost:3001/api/finance/history?${params.toString()}`;
     const res = await fetch(url);
     const data = await res.json();
@@ -279,12 +279,26 @@ function StarRating({ n }) {
 
 function ChartModal({ symbol, name, onClose }) {
   const [data, setData] = useState(null);
+  const [range, setRange] = useState("1y");
+  const [loading, setLoading] = useState(true);
   
-  useEffect(() => {
-    fetchLiveHistory(symbol).then(setData);
-  }, [symbol]);
+  const ranges = [
+    { label: "1D", val: "1d", interval: "5m" },
+    { label: "1W", val: "5d", interval: "15m" },
+    { label: "1M", val: "1mo", interval: "1d" },
+    { label: "1Y", val: "1y", interval: "1d" },
+  ];
 
-  const yDomain = data ? [Math.min(...data.map(d=>d.price))*0.95, Math.max(...data.map(d=>d.price))*1.05] : ['auto','auto'];
+  useEffect(() => {
+    setLoading(true);
+    const timeframe = ranges.find(r => r.val === range);
+    fetchLiveHistory(symbol, timeframe.val, timeframe.interval).then(res => {
+      setData(res);
+      setLoading(false);
+    });
+  }, [symbol, range]);
+
+  const yDomain = data ? [Math.min(...data.map(d=>d.price))*0.98, Math.max(...data.map(d=>d.price))*1.02] : ['auto','auto'];
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#000000cc", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }} onClick={onClose}>
@@ -292,14 +306,26 @@ function ChartModal({ symbol, name, onClose }) {
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
             <div style={{ color: "#e0e0e0", fontSize: 20, fontWeight: 700, fontFamily: "monospace" }}>{symbol}</div>
-            <div style={{ color: "#666", fontSize: 13 }}>{name} · 1Y History</div>
+            <div style={{ color: "#666", fontSize: 13 }}>{name} · Historical Performance</div>
           </div>
-          <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#666", fontSize: 24, cursor: "pointer" }}>×</button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ display: "flex", background: "#161616", borderRadius: 8, padding: 2 }}>
+              {ranges.map((r) => (
+                <button key={r.val} onClick={() => setRange(r.val)}
+                  style={{ padding: "4px 12px", borderRadius: 6, border: "none", background: range === r.val ? "#222" : "transparent", color: range === r.val ? "#00e5a0" : "#555", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#666", fontSize: 24, cursor: "pointer", marginLeft: 10 }}>×</button>
+          </div>
         </div>
         
         <div style={{ height: 350, width: "100%" }}>
-          {!data ? (
+          {loading ? (
             <div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center", color: "#555" }}>Loading Chart Data...</div>
+          ) : !data ? (
+            <div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center", color: "#555" }}>No data available for this range.</div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data}>
@@ -517,7 +543,7 @@ function MutualFundsTab({ funds, userMFs, buyMF, sellMF }) {
 }
 
 // ── Portfolio Tab ─────────────────────────────────────────────────────────────
-function PortfolioTab({ stocks, userStocks, funds, userMFs }) {
+function PortfolioTab({ stocks, userStocks, funds, userMFs, onAudit }) {
   const enriched = userStocks.map((p) => {
     const live = stocks.find((s) => s.symbol === p.symbol);
     return { ...p, currentPrice: live?.price ?? null };
@@ -546,6 +572,13 @@ function PortfolioTab({ stocks, userStocks, funds, userMFs }) {
 
   return (
     <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h2 style={{ color: "#e0e0e0", fontSize: 18, fontWeight: 700 }}>My Portfolio</h2>
+        <button onClick={onAudit} style={{ background: "linear-gradient(135deg,#00e5a0,#00b4d8)", border: "none", color: "#000", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+          <span>🤖</span> Analyze with AI
+        </button>
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))", gap: 12, marginBottom: 24 }}>
         {[
           { label: "Total Value",  val: fmtCur(total.toFixed(0)),     sub: "Portfolio",                   color: "#e0e0e0" },
@@ -705,6 +738,86 @@ function WatchlistTab({ stocks, watchlist, toggleWatchlist, intradayData = {}, u
   );
 }
 
+// ── Market Tab (Heatmap) ──────────────────────────────────────────────────────
+function MarketTab({ stocks }) {
+  const sectors = [...new Set(STOCK_DEFS.map(s => s.sector))];
+  
+  const data = sectors.map(sector => ({
+    name: sector,
+    children: stocks
+      .filter(s => s.sector === sector && s.price != null)
+      .map(s => ({
+        name: s.symbol,
+        size: s.mcap || 100, // Use mcap for size, fallback to 100
+        change: s.pct || 0,
+        price: s.price
+      }))
+  })).filter(s => s.children.length > 0);
+
+  const CustomContent = (props) => {
+    const { x, y, width, height, index, name, change } = props;
+    const color = change >= 0 ? `rgba(0, 229, 160, ${Math.min(0.2 + (change/3), 0.9)})` : `rgba(255, 77, 109, ${Math.min(0.2 + (Math.abs(change)/3), 0.9)})`;
+    
+    if (width < 30 || height < 20) return null;
+
+    return (
+      <g>
+        <rect x={x} y={y} width={width} height={height} style={{ fill: color, stroke: '#070707', strokeWidth: 1 }} />
+        {width > 50 && height > 30 && (
+          <>
+            <text x={x + width / 2} y={y + height / 2 - 2} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={700} style={{ pointerEvents: 'none' }}>
+              {name}
+            </text>
+            <text x={x + width / 2} y={y + height / 2 + 10} textAnchor="middle" fill="#fff" fontSize={9} opacity={0.8} style={{ pointerEvents: 'none' }}>
+              {change >= 0 ? '+' : ''}{change.toFixed(2)}%
+            </text>
+          </>
+        )}
+      </g>
+    );
+  };
+
+  return (
+    <div style={{ height: "calc(100vh - 250px)", minHeight: 500, background: "#0f0f0f", borderRadius: 12, border: "1px solid #1a1a1a", padding: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20, alignItems: "center" }}>
+        <div>
+          <h3 style={{ color: "#e0e0e0", fontSize: 16, fontWeight: 700 }}>Market Heatmap</h3>
+          <p style={{ color: "#555", fontSize: 12 }}>Size by Market Cap · Color by 24h Change</p>
+        </div>
+        <div style={{ display: "flex", gap: 12, fontSize: 11 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 10, height: 10, background: "#00e5a0", borderRadius: 2 }} /> Positive</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 10, height: 10, background: "#ff4d6d", borderRadius: 2 }} /> Negative</div>
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height="90%">
+        <Treemap
+          data={data}
+          dataKey="size"
+          stroke="#070707"
+          fill="#1a1a1a"
+          content={<CustomContent />}
+        >
+          <Tooltip 
+            content={({ active, payload }) => {
+              if (active && payload && payload.length) {
+                const data = payload[0].payload;
+                return (
+                  <div style={{ background: "#0a0a0a", border: "1px solid #222", borderRadius: 8, padding: "8px 12px", fontFamily: "monospace" }}>
+                    <div style={{ color: "#e0e0e0", fontWeight: 700 }}>{data.name}</div>
+                    <div style={{ color: clr(data.change), fontSize: 12 }}>{sign(data.change)}{data.change?.toFixed(2)}%</div>
+                    <div style={{ color: "#444", fontSize: 11, marginTop: 4 }}>Price: {fmtCur(data.price)}</div>
+                  </div>
+                );
+              }
+              return null;
+            }}
+          />
+        </Treemap>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 // ── News Tab ──────────────────────────────────────────────────────────────────
 function NewsTab() {
   const [newsData, setNewsData] = useState({});
@@ -813,7 +926,7 @@ function NewsTab() {
 }
 
 // ── AI Advisor Tab ────────────────────────────────────────────────────────────
-function AIAdvisorTab({ stocks, indices, userStocks, userMFs }) {
+function AIAdvisorTab({ stocks, indices, userStocks, userMFs, trigger, onTriggerHandled }) {
   const [messages, setMessages] = useState([{
     role: "assistant",
     content: "Namaste! I'm your NSE Financial Advisor with live market data.\n\nI can help with:\n\n• **Buy / Hold / Sell** decisions with current price context\n• **Sentiment analysis** on news & macro events\n• **Portfolio review** using your actual holdings\n• **Sector outlooks** and RBI / macro analysis\n\nWhat would you like to know?",
@@ -822,6 +935,13 @@ function AIAdvisorTab({ stocks, indices, userStocks, userMFs }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [sentiment, setSentiment] = useState(null);
   const endRef = useRef(null);
+
+  useEffect(() => {
+    if (trigger) {
+      sendMessage(trigger.message, trigger.context);
+      onTriggerHandled();
+    }
+  }, [trigger]);
 
   const SUGGESTIONS = [
     "Should I buy more RELIANCE at current price?",
@@ -1179,14 +1299,25 @@ export default function App() {
     return () => clearInterval(t);
   }, [loadData]);
 
+  const [aiTrigger, setAiTrigger] = useState(null);
+
   const tabs = [
     { id:"stocks",    label:"Stocks",      icon:"📈" },
+    { id:"market",    label:"Market",      icon:"🗺️" },
     { id:"watchlist", label:"Watchlist",    icon:"👁️" },
     { id:"mf",        label:"Mutual Funds", icon:"🏦" },
     { id:"portfolio", label:"Portfolio",    icon:"💼" },
     { id:"news",      label:"News",        icon:"📰" },
     { id:"advisor",   label:"AI Advisor",   icon:"🤖" },
   ];
+
+  const handleAudit = () => {
+    setAiTrigger({
+      message: "Please perform a comprehensive audit of my portfolio. Analyze my stock and mutual fund holdings, diversification, and overall risk profile.",
+      context: "User clicked 'Analyze with AI' from portfolio tab."
+    });
+    setTab("advisor");
+  };
 
   const dataOk = stocks.some((s) => s.price != null);
 
@@ -1234,11 +1365,12 @@ export default function App() {
 
       <div style={{ padding:"16px", maxWidth:1400, margin:"0 auto" }}>
         {tab==="stocks"    && <StocksTab stocks={stocks} loading={loading} lastRefresh={lastRefresh} refreshing={refreshing} onRefresh={() => loadData(true)} userStocks={userStocks} buyStock={buyStock} sellStock={sellStock} intradayData={intradayData} watchlist={watchlist} toggleWatchlist={toggleWatchlist} />}
+        {tab==="market"    && <MarketTab stocks={stocks} />}
         {tab==="watchlist" && <WatchlistTab stocks={stocks} watchlist={watchlist} toggleWatchlist={toggleWatchlist} intradayData={intradayData} userStocks={userStocks} buyStock={buyStock} sellStock={sellStock} />}
         {tab==="mf"        && <MutualFundsTab funds={funds} userMFs={userMFs} buyMF={buyMF} sellMF={sellMF} />}
-        {tab==="portfolio" && <PortfolioTab stocks={stocks} userStocks={userStocks} funds={funds} userMFs={userMFs} />}
+        {tab==="portfolio" && <PortfolioTab stocks={stocks} userStocks={userStocks} funds={funds} userMFs={userMFs} onAudit={handleAudit} />}
         {tab==="news"      && <NewsTab />}
-        {tab==="advisor"   && <AIAdvisorTab stocks={stocks} indices={indices} userStocks={userStocks} userMFs={userMFs} />}
+        {tab==="advisor"   && <AIAdvisorTab stocks={stocks} indices={indices} userStocks={userStocks} userMFs={userMFs} trigger={aiTrigger} onTriggerHandled={() => setAiTrigger(null)} />}
       </div>
     </div>
   );

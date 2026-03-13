@@ -1,13 +1,13 @@
 // Fetch Yahoo Finance Historical Chart in Vercel Serverless
 export default async function handler(req, res) {
-  const symbol = req.query.symbol;
+  const { symbol, range = '1y', interval = '1d' } = req.query;
   if (!symbol) return res.status(400).json({ error: 'Missing symbol' });
 
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
   try {
-    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1y`;
+    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}`;
     const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
     if (!response.ok) throw new Error(response.statusText);
     const json = await response.json();
