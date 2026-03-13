@@ -734,23 +734,29 @@ function NewsTab() {
     return `${days}d ago`;
   };
 
-  const allSymbols = ["All", ...Object.keys(newsData)];
+  const sectors = ["All", ...new Set(STOCK_DEFS.map(s => s.sector))];
+  
+  // Create a map of Symbol -> Sector
+  const symToSector = STOCK_DEFS.reduce((acc, s) => {
+    acc[s.symbol] = s.sector;
+    return acc;
+  }, {});
 
-  // Flatten and sort all news items
+  // Flatten and sort all news items, adding sector info
   const allItems = Object.entries(newsData).flatMap(([sym, items]) =>
-    (items || []).map(item => ({ ...item, symbol: sym }))
+    (items || []).map(item => ({ ...item, symbol: sym, sector: symToSector[sym] }))
   ).sort((a, b) => {
     if (!a.pubDate || !b.pubDate) return 0;
     return new Date(b.pubDate) - new Date(a.pubDate);
   });
 
-  const filtered = filter === "All" ? allItems : allItems.filter(i => i.symbol === filter);
+  const filtered = filter === "All" ? allItems : allItems.filter(i => i.sector === filter);
 
   return (
     <div>
       <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {allSymbols.map(s => (
+          {sectors.map(s => (
             <button key={s} onClick={() => setFilter(s)}
               style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid", borderColor: filter === s ? "#00b4d8" : "#222", background: filter === s ? "#00b4d818" : "transparent", color: filter === s ? "#00b4d8" : "#555", cursor: "pointer", fontSize: 12 }}>
               {s}
