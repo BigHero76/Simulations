@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Treemap } from "recharts";
+import { createChart } from "lightweight-charts";
+import { supabase } from "./lib/supabase";
 
 // ── Static definitions ────────────────────────────────────────────────────────
 const STOCK_DEFS = [
@@ -277,10 +279,57 @@ function StarRating({ n }) {
   return <span>{Array.from({ length: 5 }, (_, i) => <span key={i} style={{ color: i < n ? "#f5a623" : "#252525", fontSize: 12 }}>★</span>)}</span>;
 }
 
+// ── Candlestick Chart ────────────────────────────────────────────────────────
+function CandlestickChart({ data }) {
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!containerRef.current || !data || data.length === 0) return;
+
+    const chart = createChart(containerRef.current, {
+      width: containerRef.current.clientWidth,
+      height: 350,
+      layout: { background: { color: "#0f0f0f" }, textColor: "#666" },
+      grid: { vertLines: { color: "#111" }, horzLines: { color: "#111" } },
+      crosshair: { mode: 1 },
+      rightPriceScale: { borderColor: "#222" },
+      timeScale: { borderColor: "#222", timeVisible: true },
+    });
+
+    const candleSeries = chart.addCandlestickSeries({
+      upColor:          "#00e5a0",
+      downColor:        "#ff4d6d",
+      borderUpColor:    "#00e5a0",
+      borderDownColor:  "#ff4d6d",
+      wickUpColor:      "#00e5a0",
+      wickDownColor:    "#ff4d6d",
+    });
+
+    const candles = data
+      .filter(d => d.open != null && d.high != null && d.low != null && d.close != null)
+      .map(d => ({ time: d.date, open: d.open, high: d.high, low: d.low, close: d.close }))
+      .sort((a, b) => (a.time > b.time ? 1 : -1));
+
+    candleSeries.setData(candles);
+    chart.timeScale().fitContent();
+
+    const handleResize = () => chart.applyOptions({ width: containerRef.current?.clientWidth });
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chart.remove();
+    };
+  }, [data]);
+
+  return <div ref={containerRef} style={{ width: "100%", height: 350 }} />;
+}
+
 function ChartModal({ symbol, name, onClose }) {
   const [data, setData] = useState(null);
   const [range, setRange] = useState("1y");
   const [loading, setLoading] = useState(true);
+  const [chartType, setChartType] = useState("line");
   
   const ranges = [
     { label: "1D", val: "1d", interval: "5m" },
@@ -308,7 +357,17 @@ function ChartModal({ symbol, name, onClose }) {
             <div style={{ color: "#e0e0e0", fontSize: 20, fontWeight: 700, fontFamily: "monospace" }}>{symbol}</div>
             <div style={{ color: "#666", fontSize: 13 }}>{name} · Historical Performance</div>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            {/* Chart type toggle */}
+            <div style={{ display: "flex", background: "#161616", borderRadius: 8, padding: 2 }}>
+              {[["line", "Line"], ["candle", "Candle"]].map(([type, label]) => (
+                <button key={type} onClick={() => setChartType(type)}
+                  style={{ padding: "4px 12px", borderRadius: 6, border: "none", background: chartType === type ? "#222" : "transparent", color: chartType === type ? "#f5a623" : "#555", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {/* Range selector */}
             <div style={{ display: "flex", background: "#161616", borderRadius: 8, padding: 2 }}>
               {ranges.map((r) => (
                 <button key={r.val} onClick={() => setRange(r.val)}
@@ -326,6 +385,8 @@ function ChartModal({ symbol, name, onClose }) {
             <div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center", color: "#555" }}>Loading Chart Data...</div>
           ) : !data ? (
             <div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center", color: "#555" }}>No data available for this range.</div>
+          ) : chartType === "candle" ? (
+            <CandlestickChart data={data} />
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data}>
@@ -1168,7 +1229,18 @@ export default function App() {
   const [lastRefresh, setLastRefresh] = useState(null);
   const [intradayData, setIntradayData] = useState({});
 
-  // Watchlist State (Persistent)
+  // ── Stable anonymous user ID ──────────────────────────────────────────────
+  const getUserId = () => {
+    let uid = localStorage.getItem('nse_user_id');
+    if (!uid) {
+      uid = crypto.randomUUID();
+      localStorage.setItem('nse_user_id', uid);
+    }
+    return uid;
+  };
+  const userId = getUserId();
+
+  // Watchlist State (localStorage seed, Supabase source-of-truth)
   const [watchlist, setWatchlist] = useState(() => {
     try {
       const saved = localStorage.getItem('nse_watchlist');
@@ -1181,10 +1253,20 @@ export default function App() {
   }, [watchlist]);
 
   const toggleWatchlist = (symbol) => {
-    setWatchlist(prev => prev.includes(symbol) ? prev.filter(s => s !== symbol) : [...prev, symbol]);
+    const isWatched = watchlist.includes(symbol);
+    setWatchlist(prev => isWatched ? prev.filter(s => s !== symbol) : [...prev, symbol]);
+    if (supabase) {
+      if (isWatched) {
+        supabase.from('user_watchlist').delete().eq('user_id', userId).eq('symbol', symbol)
+          .then(({ error }) => { if (error) console.error('Watchlist delete error:', error); });
+      } else {
+        supabase.from('user_watchlist').upsert({ user_id: userId, symbol }, { onConflict: 'user_id,symbol' })
+          .then(({ error }) => { if (error) console.error('Watchlist upsert error:', error); });
+      }
+    }
   };
 
-  // Dynamic User Portfolio State (Persistent)
+  // Dynamic User Portfolio State (localStorage seed, Supabase source-of-truth)
   const [userStocks, setUserStocks] = useState(() => {
     try {
       const saved = localStorage.getItem('nse_user_stocks');
@@ -1206,19 +1288,59 @@ export default function App() {
     localStorage.setItem('nse_user_mfs', JSON.stringify(userMFs));
   }, [userMFs]);
 
+  // ── Load portfolio from Supabase on mount ─────────────────────────────────
+  useEffect(() => {
+    if (!supabase) return; // No credentials — localStorage only
+    (async () => {
+      const [stocksRes, mfsRes, watchRes] = await Promise.all([
+        supabase.from('user_stocks').select('*').eq('user_id', userId),
+        supabase.from('user_mfs').select('*').eq('user_id', userId),
+        supabase.from('user_watchlist').select('symbol').eq('user_id', userId),
+      ]);
+      if (stocksRes.data?.length) {
+        const mapped = stocksRes.data.map(r => ({
+          symbol: r.symbol, qty: r.qty, avgPrice: r.avg_price, sector: r.sector
+        }));
+        setUserStocks(mapped);
+        localStorage.setItem('nse_user_stocks', JSON.stringify(mapped));
+      }
+      if (mfsRes.data?.length) {
+        const mapped = mfsRes.data.map(r => ({
+          name: r.name, units: r.units, avgNav: r.avg_nav, currentNav: r.current_nav ?? r.avg_nav
+        }));
+        setUserMFs(mapped);
+        localStorage.setItem('nse_user_mfs', JSON.stringify(mapped));
+      }
+      if (watchRes.data?.length) {
+        const symbols = watchRes.data.map(r => r.symbol);
+        setWatchlist(symbols);
+        localStorage.setItem('nse_watchlist', JSON.stringify(symbols));
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Add 1 unit at a time
   const buyStock = (s) => {
     if (s.price == null) return;
     const qtyToAdd = 1;
     setUserStocks(prev => {
       const existing = prev.find(p => p.symbol === s.symbol);
+      let updated;
       if (existing) {
         const newQty = existing.qty + qtyToAdd;
-        // recalculate rolling average entry price
         const newAvg = ((existing.qty * existing.avgPrice) + (qtyToAdd * s.price)) / newQty;
+        updated = { symbol: s.symbol, qty: newQty, avgPrice: newAvg, sector: s.sector };
+        if (supabase) supabase.from('user_stocks')
+          .upsert({ user_id: userId, symbol: updated.symbol, qty: updated.qty, avg_price: updated.avgPrice, sector: updated.sector }, { onConflict: 'user_id,symbol' })
+          .then(({ error }) => { if (error) console.error('buyStock upsert error:', error); });
         return prev.map(p => p.symbol === s.symbol ? { ...p, qty: newQty, avgPrice: newAvg } : p);
       }
-      return [...prev, { symbol: s.symbol, qty: qtyToAdd, avgPrice: s.price, sector: s.sector }];
+      updated = { symbol: s.symbol, qty: qtyToAdd, avgPrice: s.price, sector: s.sector };
+      if (supabase) supabase.from('user_stocks')
+        .upsert({ user_id: userId, symbol: updated.symbol, qty: updated.qty, avg_price: updated.avgPrice, sector: updated.sector }, { onConflict: 'user_id,symbol' })
+        .then(({ error }) => { if (error) console.error('buyStock upsert error:', error); });
+      return [...prev, updated];
     });
   };
 
@@ -1227,8 +1349,16 @@ export default function App() {
     setUserStocks(prev => {
       const existing = prev.find(p => p.symbol === s.symbol);
       if (!existing) return prev;
-      if (existing.qty <= qtyToSub) return prev.filter(p => p.symbol !== s.symbol);
-      return prev.map(p => p.symbol === s.symbol ? { ...p, qty: existing.qty - qtyToSub } : p);
+      if (existing.qty <= qtyToSub) {
+        if (supabase) supabase.from('user_stocks').delete().eq('user_id', userId).eq('symbol', s.symbol)
+          .then(({ error }) => { if (error) console.error('sellStock delete error:', error); });
+        return prev.filter(p => p.symbol !== s.symbol);
+      }
+      const newQty = existing.qty - qtyToSub;
+      if (supabase) supabase.from('user_stocks')
+        .upsert({ user_id: userId, symbol: s.symbol, qty: newQty, avg_price: existing.avgPrice, sector: existing.sector }, { onConflict: 'user_id,symbol' })
+        .then(({ error }) => { if (error) console.error('sellStock upsert error:', error); });
+      return prev.map(p => p.symbol === s.symbol ? { ...p, qty: newQty } : p);
     });
   };
 
@@ -1237,12 +1367,21 @@ export default function App() {
     const unitsToAdd = 1;
     setUserMFs(prev => {
       const existing = prev.find(m => m.name === f.name);
+      let updated;
       if (existing) {
         const newQty = existing.units + unitsToAdd;
         const newAvg = ((existing.units * existing.avgNav) + (unitsToAdd * f.nav)) / newQty;
+        updated = { name: f.name, units: newQty, avgNav: newAvg, currentNav: f.nav };
+        if (supabase) supabase.from('user_mfs')
+          .upsert({ user_id: userId, name: updated.name, units: updated.units, avg_nav: updated.avgNav, current_nav: updated.currentNav }, { onConflict: 'user_id,name' })
+          .then(({ error }) => { if (error) console.error('buyMF upsert error:', error); });
         return prev.map(m => m.name === f.name ? { ...m, units: newQty, avgNav: newAvg, currentNav: f.nav } : m);
       }
-      return [...prev, { name: f.name, units: unitsToAdd, avgNav: f.nav, currentNav: f.nav }];
+      updated = { name: f.name, units: unitsToAdd, avgNav: f.nav, currentNav: f.nav };
+      if (supabase) supabase.from('user_mfs')
+        .upsert({ user_id: userId, name: updated.name, units: updated.units, avg_nav: updated.avgNav, current_nav: updated.currentNav }, { onConflict: 'user_id,name' })
+        .then(({ error }) => { if (error) console.error('buyMF upsert error:', error); });
+      return [...prev, updated];
     });
   };
 
@@ -1251,8 +1390,16 @@ export default function App() {
     setUserMFs(prev => {
       const existing = prev.find(m => m.name === f.name);
       if (!existing) return prev;
-      if (existing.units <= unitsToSub) return prev.filter(m => m.name !== f.name);
-      return prev.map(m => m.name === f.name ? { ...m, units: existing.units - unitsToSub } : m);
+      if (existing.units <= unitsToSub) {
+        if (supabase) supabase.from('user_mfs').delete().eq('user_id', userId).eq('name', f.name)
+          .then(({ error }) => { if (error) console.error('sellMF delete error:', error); });
+        return prev.filter(m => m.name !== f.name);
+      }
+      const newUnits = existing.units - unitsToSub;
+      if (supabase) supabase.from('user_mfs')
+        .upsert({ user_id: userId, name: f.name, units: newUnits, avg_nav: existing.avgNav, current_nav: existing.currentNav }, { onConflict: 'user_id,name' })
+        .then(({ error }) => { if (error) console.error('sellMF upsert error:', error); });
+      return prev.map(m => m.name === f.name ? { ...m, units: newUnits } : m);
     });
   };
 
