@@ -1403,58 +1403,106 @@ export default function App() {
     });
   };
 
-  const loadData = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+  // ── Cache helpers ──────────────────────────────────────────────────────────
+  const CACHE_KEY    = 'nse_market_cache';
+  const INTRADAY_KEY = 'nse_intraday_cache';
+  const CACHE_TTL    = 5 * 60 * 1000; // 5 min
 
+  const readCache = (key) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const { ts, data } = JSON.parse(raw);
+      return { data, age: Date.now() - ts };
+    } catch { return null; }
+  };
+  const writeCache = (key, data) => {
+    try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch {}
+  };
+
+  const loadData = useCallback(async (isRefresh = false) => {
     const symbols = STOCK_DEFS.map((d) => d.symbol);
 
+    // ── 1. Serve stale cache instantly (skip loading spinner) ──────────────
+    if (!isRefresh) {
+      const cached = readCache(CACHE_KEY);
+      if (cached) {
+        const { stocks: cs, indices: ci, funds: cf, intraday: cd } = cached.data;
+        if (cs) setStocks(cs);
+        if (ci) setIndices(ci);
+        if (cf) setFunds(cf);
+        if (cd) setIntradayData(cd);
+        setLoading(false); // show UI immediately with stale data
+        setRefreshing(true); // subtle indicator that refresh is happening
+      } else {
+        setLoading(true);
+      }
+    } else {
+      setRefreshing(true);
+    }
+
+    // ── 2. Fetch fresh prices + indices + AMFI in parallel ─────────────────
     const [priceData, indexData, amfiData] = await Promise.all([
       fetchLivePrices(symbols),
       fetchLiveIndices(),
       fetchLiveMutualFunds(),
     ]);
 
-    // Fetch intraday data in batches to avoid rate-limiting
-    const intradayMap = {};
-    const BATCH_SIZE = 6;
-    for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
-      const batch = symbols.slice(i, i + BATCH_SIZE);
-      const batchResults = await Promise.all(
-        batch.map(async (sym) => {
-          const data = await fetchIntradayData(sym);
-          return { symbol: sym, data };
-        })
-      );
-      batchResults.forEach(r => { if (r.data) intradayMap[r.symbol] = r.data; });
-      if (i + BATCH_SIZE < symbols.length) await new Promise(r => setTimeout(r, 400));
-    }
-    setIntradayData(intradayMap);
-
+    let freshStocks = null;
     if (priceData) {
-      setStocks(STOCK_DEFS.map((def) => {
+      freshStocks = STOCK_DEFS.map((def) => {
         const live = priceData.find((p) => p.symbol === def.symbol);
         return { ...def, price: live?.price ?? null, change: live?.change ?? null, pct: live?.pct ?? null, volume: live?.volume ?? null, mcap: live?.mcap ?? null };
-      }));
+      });
+      setStocks(freshStocks);
     }
 
     if (indexData) setIndices(indexData);
 
+    let freshFunds = null;
     if (amfiData) {
-      setFunds(MUTUAL_FUNDS.map((f) => ({
-         ...f, 
-         nav: amfiData[f.code] || f.nav 
-      })));
-      
-      // Keep dynamic user MF portfolio navs refreshed
+      freshFunds = MUTUAL_FUNDS.map((f) => ({ ...f, nav: amfiData[f.code] || f.nav }));
+      setFunds(freshFunds);
       setUserMFs(prev => prev.map(portFund => {
-         const matchingDef = MUTUAL_FUNDS.find(m => m.name === portFund.name);
-         if (matchingDef && amfiData[matchingDef.code]) {
-             return { ...portFund, currentNav: amfiData[matchingDef.code] };
-         }
-         return portFund;
+        const matchingDef = MUTUAL_FUNDS.find(m => m.name === portFund.name);
+        if (matchingDef && amfiData[matchingDef.code]) {
+          return { ...portFund, currentNav: amfiData[matchingDef.code] };
+        }
+        return portFund;
       }));
     }
+
+    // ── 3. Intraday: skip fetch if cached within TTL ────────────────────────
+    const intradayCached = readCache(INTRADAY_KEY);
+    let freshIntraday = intradayCached?.data ?? {};
+
+    if (!intradayCached || intradayCached.age > CACHE_TTL) {
+      const intradayMap = {};
+      const BATCH_SIZE = 6;
+      for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
+        const batch = symbols.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(
+          batch.map(async (sym) => {
+            const data = await fetchIntradayData(sym);
+            return { symbol: sym, data };
+          })
+        );
+        batchResults.forEach(r => { if (r.data) intradayMap[r.symbol] = r.data; });
+        if (i + BATCH_SIZE < symbols.length) await new Promise(r => setTimeout(r, 400));
+      }
+      freshIntraday = intradayMap;
+      writeCache(INTRADAY_KEY, intradayMap);
+    }
+
+    setIntradayData(freshIntraday);
+
+    // ── 4. Persist fresh market data to cache ──────────────────────────────
+    writeCache(CACHE_KEY, {
+      stocks:   freshStocks,
+      indices:  indexData,
+      funds:    freshFunds,
+      intraday: freshIntraday,
+    });
 
     setLoading(false);
     setRefreshing(false);
